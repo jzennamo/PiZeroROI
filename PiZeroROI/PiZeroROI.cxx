@@ -1,7 +1,7 @@
 #ifndef TEST_USERANALYSIS_CXX
 #define TEST_USERANALYSIS_CXX
 
-#include "PiZeroROI.hh"
+#include "PiZeroROI.h"
 #include <iostream>
 
 namespace larlite{
