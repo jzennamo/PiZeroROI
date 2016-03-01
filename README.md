@@ -1,7 +1,3 @@
 # PiZeroROI
 
-This was stolen from Wes' ubuseranalysis.
-
-This is a first attempt at the PiZeroROI, it only contains the wire and tick ranges and an assoicated vertex for all three views.
-
-Let me know! 
+This is specifically for LArLite so you will need to make sure any changes in the LArSoft version get propogated here. This is a rough draft for now. 

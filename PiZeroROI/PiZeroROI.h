@@ -17,7 +17,7 @@
 #include <vector>
 #include <utility>
 
-namespace ana{
+namespace larlite{
   
   class PiZeroROI
   {
@@ -52,6 +52,7 @@ namespace ana{
     std::vector < std::pair <int, int > > _vtx; // size 3 plane, pair with tick, wire for vertex
     
   };
+
 }
   
 #endif
