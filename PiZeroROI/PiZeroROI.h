@@ -7,8 +7,8 @@
  * @author Joseph Zennamo, jaz8600@fnal.gov 
 */
 
-#ifndef TEST_USERANALYSIS_H
-#define TEST_USERANALYSIS_H
+#ifndef PIZEROROI_H
+#define PIZEROROI_H
 
 #include <string>
 
