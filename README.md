@@ -1,8 +1,7 @@
-# ubuseranalysis
-Skeleton analysis class for starting a LArSoft analyzer
+# PiZeroROI
 
-UserAnalysis: a simple analysis class that you can write your own piece of code in
-UserAnalyzer: a simple LArSoft Analyzer that calls the UserAnalysis object above
-tools/rename.py: a script to rename your area so that you can set up your own development
+This was stolen from Wes' ubuseranalysis.
 
-Do "python tools/rename.py -h" for help
+This is a first attempt at the PiZeroROI, it only contains the wire and tick ranges and an assoicated vertex for all three views.
+
+Let me know! 
