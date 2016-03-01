@@ -1,16 +1,12 @@
-#ifndef TEST_USERANALYSIS_CXX
-#define TEST_USERANALYSIS_CXX
+#ifndef LARLITE_PIZEROROI_CXX
+#define LARLITE_PIZEROROI_CXX
 
 #include "PiZeroROI.h"
 #include <iostream>
 
 namespace larlite{
 
-  PiZeroROI::PiZeroROI()
-    : fAlgName("PiZeroROI")
-  {}
-  
-  void PiZeroROI::cleardata(){
+  void PiZeroROI::clear_data(){
     _t_range.clear();
     _wire_range.clear();
     _vtx.clear();
@@ -79,32 +75,11 @@ namespace larlite{
     
   }
   
-  std::vector < std::pair <int, int > > PiZeroROI::GetVertex(){
+  std::vector < std::pair <int, int > > PiZeroROI::GetVertex(){ return _vtx; }
     
-    std::vector < std::pair <int, int > > output = _vtx;
-    
-    return output;
-    
-  }
+  std::vector < std::pair< int, int > > PiZeroROI::GetWireROI(){ return _wire_range; }
   
-  
-  std::vector < std::pair< int, int > > PiZeroROI::GetWireROI(){
-    
-    std::vector < std::pair <int, int > > output = _wire_range;
-    
-    return output;
-    
-  }
-  
-  
-  
-  std::vector < std::pair< int, int > > PiZeroROI::GetTimeROI(){
-    
-    std::vector < std::pair <int, int > > output =  _t_range;
-    
-    return output;
-
-  }
+  std::vector < std::pair< int, int > > PiZeroROI::GetTimeROI(){ return  _t_range; }
   
   
 }

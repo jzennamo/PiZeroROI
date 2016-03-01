@@ -7,15 +7,14 @@
  * @author Joseph Zennamo, jaz8600@fnal.gov 
 */
 
-#ifndef PIZEROROI_H
-#define PIZEROROI_H
-
-#include <string>
-
+#ifndef LARLITE_PIZEROROI_H
+#define LARLITE_PIZEROROI_H
 
 #include "TTree.h"
+#include "Base/MCConstants.h" 
 #include <vector>
 #include <utility>
+#include "data_base.h"
 
 namespace larlite{
   
@@ -25,19 +24,17 @@ namespace larlite{
     
   public:
     
-    /// Default constructor
-    PiZeroROI();
     /// Default destructor
     virtual ~PiZeroROI(){};
 
-  PiZeroROI() : data_base(data::kMCTrack)
+  PiZeroROI() : data_base(data::kPiZeroROI)
       { clear_data(); }
     
     PiZeroROI(const std::vector < std::pair< int, int > > Wire,
 	      const std::vector < std::pair< int, int > > Time);
     
     PiZeroROI(const PiZeroROI& orig) : _wire_range(orig._wire_range),
-                                       _time_range(orig._time_range),
+                                       _t_range(orig._t_range),
                                        _vtx(orig._vtx)
 					 {}
 
@@ -56,7 +53,6 @@ namespace larlite{
 
   private:
     
-    std::string fAlgName;    
     std::vector < std::pair< int, int > > _wire_range; // size 3 planes, min then max
     std::vector < std::pair< int, int > > _t_range; // size 3 planes, min then max
     std::vector < std::pair <int, int > > _vtx; // size 3 plane, pair with tick, wire for vertex
