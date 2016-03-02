@@ -96,11 +96,14 @@ bool PiZeroFilter::filter(art::Event & e)
   
   //util::CreateAssn(*this, e, *pizeroroiVector, vtx, *assnPiZeroROITagVertex);
   
-  e.put( std::move(pizeroroiVector) );
-  if(pizeroroiVector->size() > 0)
-    return true;
+  bool pass = false;
+  if (pizeroroiVector->size() > 0 ) {
+    pass = true;
+  }
 
-  return false;
+  e.put( std::move(pizeroroiVector) );
+
+  return pass;
   
   //return true;
   //e.put( std::move(assnPiZeroROITagVertex) );
