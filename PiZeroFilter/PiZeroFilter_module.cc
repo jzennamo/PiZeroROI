@@ -61,10 +61,11 @@ private:
   std::string fPFPClusterAssnModuleLabel;
   std::string fPFPTrackAssnModuleLabel;
 
-  float fMuonVertexProximityCut;
   float fMuonTrackLengthCut;
   float fTrackVertexProximityCut;
   float fShowerVertexProximityCut;
+  float fShowerDetachedProximityCut;
+  float fMinNumDetachedShowerCut;
 
   TTree* fmytree;
   int fnVtx;
@@ -87,6 +88,7 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
 
 bool PiZeroFilter::filter(art::Event & e)
 {
+  bool pass = false;
   //produces< std::vector<recob::PFParticle> >();
   //produces< std::vector<recob::Seed> >();
   //produces< std::vector<recob::Track> >();
@@ -159,10 +161,11 @@ bool PiZeroFilter::filter(art::Event & e)
       for(auto const & v_p : v_ps) {
 	v_p->XYZ(xyz_p);
       }
-      
+
+      // Find muon which is defined as longest track near neutrino vertex within tolerance
       float max_trkl = -1;
       int max_trkl_idx = -1;
-      for(auto const idx : Pfp.Daughters()) {
+      for(auto idx : Pfp.Daughters()) {
 
         //const & recob::Vertex v_d = PfpVtx.at(PfpVector.at(idx).Self());
 	auto const & v_ds = PfpVtx.at(PfpVector.at(idx).Self());
@@ -175,7 +178,7 @@ bool PiZeroFilter::filter(art::Event & e)
 	}
         float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2));
 
-	if(PfpVector.at(idx).PdgCode() == 13 && dist<fMuonVertexProximityCut) { // Muon
+	if(PfpVector.at(idx).PdgCode() == 13 && dist<fTrackVertexProximityCut) { // Muon
 
 	  //const & recob::Track trk_d = PfpTrk.at(PfpVector.at(idx).Self());
 	  auto const & trk_ds = PfpTrk.at(PfpVector.at(idx).Self());
@@ -192,89 +195,87 @@ bool PiZeroFilter::filter(art::Event & e)
 	  }
 	}
       }
-
-      if(max_trkl_idx == -1 || max_trkl<fMuonTrackLengthCut)
+      // If there is no muon then look for next neutrino vertex in event
+      if(max_trkl_idx == -1 || max_trkl<fMuonTrackLengthCut) 
 	continue;
-    }
-  }
-      /*
-      float startw[3] = {0.}
-      float startt[3] = {0.}
-      float endw[3] = {0.}
-      float endt[3] = {0.}
-      unsigned int nShowers = 0;
+
+      float pstartw[3] = {0.};
+      float pstartt[3] = {0.};
+      float startw[3] = {0.};
+      float startt[3] = {0.};
+      float endw[3] = {0.};
+      float endt[3] = {0.};
+      unsigned int nDetachedShowers = 0;
       for(auto const idx : Pfp.Daughters()) {
 
 	// Get daughters of neutrino and associated tracks
-	const & recob::Vertex v_d = PfpVtx.at(PfpVector.at(idx).Self());	
+	//const & recob::Vertex v_d = PfpVtx.at(PfpVector.at(idx).Self());	
+	auto const & v_ds = PfpVtx.at(PfpVector.at(idx).Self());	
+        if(v_ds.size() != 1) {
+	  std::cout << "I Hate My Life! 4444444444444" << std::endl;
+        }	
 	double xyz_d[3];
-	v_d.XYZ(xyz_d);
-	float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2))
+	for(auto const & v_d : v_ds) {
+	  v_d->XYZ(xyz_d);
+	}
+	float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2));
 
 	if(PfpVector.at(idx).PdgCode() == 13) { // Muon
-	  
-	  //const & recob::Track trk_d = PfpTrk.at(PfpVector.at(idx).Self());
 	  //If track is close enough to the neutrino vertex
 	  if(dist < fTrackVertexProximityCut) { 
-	    const & recob::Cluster cls_d = PfpCls.at(PfpVector.at(idx).Self());
-	    auto c_idx = cls_d.Plane().Plane;
-	    startw[c_idx] = std::min(startw[c_idx],std::min(cls.StartWire(),cls.EndWire()));
-	    endw[c_idx] = std::max(endw[c_idx],std::max(cls.StartWire(),cls.EndWire()));
-	    startt[c_idx] = std::min(startt[c_idx],std::min(cls.StartTick(),cls.EndTick()));
-	    endt[c_idx] = std::max(endr[c_idx],std::max(cls.StartTick(),cls.EndTick()));	    
+	    //const & recob::Cluster cls_d = PfpCls.at(PfpVector.at(idx).Self());
+	    auto const & cls_ds = PfpCls.at(PfpVector.at(idx).Self());
+	    for(auto const & cls_d : cls_ds) {
+	      auto c_idx = cls_d->Plane().Plane;
+	      startw[c_idx] = std::min(startw[c_idx],std::min(cls_d->StartWire(),cls_d->EndWire()));
+	      endw[c_idx] = std::max(endw[c_idx],std::max(cls_d->StartWire(),cls_d->EndWire()));
+	      startt[c_idx] = std::min(startt[c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
+	      endt[c_idx] = std::max(endt[c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
+	      if(int(idx) == max_trkl_idx) {
+		pstartw[c_idx] = startw[c_idx];
+		pstartt[c_idx] = startt[c_idx];
+	      }
+	    }
 	  }
-
 	} else if (PfpVector.at(idx).PdgCode() == 11) { // Shower
-	  // Get Cluster info
+	  //If track is close enough to the neutrino vertex
 	  if(dist < fShowerVertexProximityCut) { 
-
-	    const & recob::Cluster cls_t = PfpCls.at(PfpVector.at(max_trkl_idx).Self());
-	    const & recob::Cluster cls_s = PfpCls.at(PfpVector.at(idx).Self());
-	    
-	    if(cls_t.Plane().Plane
-
-
-	    auto c_idx = cls_d.Plane().Plane;
-	    startw[c_idx] = std::min(startw[c_idx],std::min(cls.StartWire(),cls.EndWire()));
-	    endw[c_idx] = std::max(endw[c_idx],std::max(cls.StartWire(),cls.EndWire()));
-	    startt[c_idx] = std::min(startt[c_idx],std::min(cls.StartTick(),cls.EndTick()));
-	    endt[c_idx] = std::max(endr[c_idx],std::max(cls.StartTick(),cls.EndTick()));
-
-	  ++nShowers;
-
+	    //const & recob::Cluster cls_d = PfpCls.at(PfpVector.at(idx).Self());
+	    auto const & cls_ds = PfpCls.at(PfpVector.at(idx).Self());
+	    for(auto const & cls_d : cls_ds) {
+	      auto c_idx = cls_d->Plane().Plane;
+	      startw[c_idx] = std::min(startw[c_idx],std::min(cls_d->StartWire(),cls_d->EndWire()));
+	      endw[c_idx] = std::max(endw[c_idx],std::max(cls_d->StartWire(),cls_d->EndWire()));
+	      startt[c_idx] = std::min(startt[c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
+	      endt[c_idx] = std::max(endt[c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
+	    }
+	  }
+	  if(dist > fShowerDetachedProximityCut) {
+	    ++nDetachedShowers;
+	  }
 	} else {
 	  std::cout << "NOOOOOOOO" << std::endl;
 	}
+      } // loop over daughters
+      if(nDetachedShowers < fMinNumDetachedShowerCut) 
+	continue;
+
+      pass = true;
+
+      for(int i = 0; i<3; ++i) {
+	Vertex[i] = std::make_pair(pstartt[i],pstartw[i]);
+	TimePairs[i] = std::make_pair(startt[i],endt[i]);
+	WirePairs[i] = std::make_pair(startw[i],endw[i]);
       }
-    }
-  }
-      */  
-  fnVtx = 0;
-  for(auto const Vtx : VtxVector) {
-    std::cout << "VtxID: " << Vtx.ID() << std::endl;
-    std::vector<std::pair<int, int> > VertexPairs;
-    std::vector<std::pair<int, int> > TimePairs;
-    std::vector<std::pair<int, int> > WirePairs;
-    for(int i = 0; i<3; ++i) {
-      VertexPairs.emplace_back(i,Vtx.ID());
-      TimePairs.emplace_back(i+3,Vtx.ID());
-      WirePairs.emplace_back(i+6,Vtx.ID());
-    }
-    ana::PiZeroROI pizeroroi;
-    pizeroroi.SetVertex( VertexPairs );
-    pizeroroi.SetROI( WirePairs, TimePairs );
-    pizeroroiVector->emplace_back(pizeroroi);
-    ++fnVtx;
-  }
-  std::cout << fnVtx << std::endl;
-  fmytree->Fill();
+      ana::PiZeroROI pizeroroi;
+      pizeroroi.SetVertex( Vertex );
+      pizeroroi.SetROI( WirePairs, TimePairs );
+      pizeroroiVector->emplace_back(pizeroroi);
+
+      fmytree->Fill();
   
-  //util::CreateAssn(*this, e, *pizeroroiVector, vtx, *assnPiZeroROITagVertex);
-  
-  bool pass = false;
-  if (pizeroroiVector->size() > 0 ) {
-    pass = true;
-  }
+    } // neutrino
+  } // loop over PFParticles
 
   e.put( std::move(pizeroroiVector) );
 
@@ -297,10 +298,11 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
   fPFPTrackAssnModuleLabel = p.get<std::string>("PFPTrackAssnModuleLabel");
   // Implementation of optional member function here.
 
-  fMuonVertexProximityCut = p.get<float>("MuonVertexProximityCut");
   fMuonTrackLengthCut = p.get<float>("MuonTrackLengthCut");
   fTrackVertexProximityCut = p.get<float>("TrackVertexProximityCut");
   fShowerVertexProximityCut = p.get<float>("ShowerVertexProximityCut");
+  fShowerDetachedProximityCut = p.get<float>("ShowerDetachedProximityCut");
+  fMinNumDetachedShowerCut = p.get<int>("MinNumDetachedShowerCut");
 
 }
 

@@ -14,10 +14,11 @@ microboone_pizerofilter:
     PFPClusterAssnModuleLabel:  "pandoraNu"
     PFPTrackAssnModuleLabel:    "pandoraNuKHit"
 
-    MuonVertexProximityCut: 5.
     MuonTrackLengthCut: 75.
     TrackVertexProximityCut: 5.
     ShowerVertexProximityCut: 20.  
+    ShowerDetachedProximityCut: 5.
+    MinNumDetachedShowerCut: 4
 }
 
 END_PROLOG
