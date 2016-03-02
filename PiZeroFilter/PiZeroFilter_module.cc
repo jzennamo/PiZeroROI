@@ -97,12 +97,29 @@ bool PiZeroFilter::filter(art::Event & e)
   std::unique_ptr<std::vector<ana::PiZeroROI> > pizeroroiVector( new std::vector<ana::PiZeroROI> );
   //std::unique_ptr< art::Assns<recob::Vertex, ana::PiZeroROI::PiZeroROI > >  assnPiZeroROITagVertex( new art::Assns<recob::Vertex, anab::PiZeroROI>);
   
+  art::Handle<std::vector<recob::PFParticle> > Pfp_h;
   art::Handle<std::vector<recob::Vertex> > Vtx_h;
-  e.getByLabel( fVertexModuleLabel, Vtx_h );
+  art::Handle<std::vector<recob::Cluster> > Cls_h;
+  art::Handle<std::vector<recob::Track> > Trk_h;
 
-  if(!Vtx_h.isValid()) throw std::exception();
+  std::cout << fPFPModuleLabel << fVertexModuleLabel << fClusterModuleLabel << fTrackModuleLabel << std::endl;
+  e.getByLabel( fPFPModuleLabel, Pfp_h );
+  e.getByLabel( fVertexModuleLabel, Vtx_h );
+  e.getByLabel( fClusterModuleLabel, Cls_h );
+  e.getByLabel( fTrackModuleLabel, Trk_h );
+
+  if(!(Pfp_h.isValid() && Vtx_h.isValid() && Cls_h.isValid() && Trk_h.isValid())) 
+    throw std::exception();
+  
+  std::vector<recob::PFParticle> const& PfpVector(*Pfp_h);
   std::vector<recob::Vertex> const& VtxVector(*Vtx_h);
-  std::cout << VtxVector.size() << std::endl;
+  std::vector<recob::Cluster> const& ClsVector(*Cls_h);
+  std::vector<recob::Track> const& TrkVector(*Trk_h);
+
+  std::cout << "PFPVector size: " << PfpVector.size() << std::endl;
+  std::cout << "VtxVector size: " << VtxVector.size() << std::endl;
+  std::cout << "ClsVector size: " << ClsVector.size() << std::endl;
+  std::cout << "TrkVector size: " << TrkVector.size() << std::endl;
   
   std::cout << "Hello!" << std::endl;
   fnVtx = 0;

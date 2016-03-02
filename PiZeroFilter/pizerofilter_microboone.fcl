@@ -6,7 +6,7 @@ microboone_pizerofilter:
 
     PFPModuleLabel:             "pandoraNu"
     VertexModuleLabel:          "pandoraNu"
-    ClusterModuleLabel:         "pandoarNu"
+    ClusterModuleLabel:         "pandoraNu"
     TrackModuleLabel:           "pandoraNuKHit"
     #ShowerModuleLabel:          "showerrecopandora"
 
