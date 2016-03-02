@@ -22,7 +22,10 @@
 #include "art/Framework/Services/Optional/TFileService.h"
 
 #include "PiZeroROI/PiZeroROI.hh"
+#include "RecoBase/PFParticle.h"
 #include "RecoBase/Vertex.h"
+#include "RecoBase/Track.h"
+#include "RecoBase/Cluster.h"
 
 class PiZeroFilter;
 
@@ -47,7 +50,16 @@ public:
 private:
 
   // Declare member data here.
+  std::string fPFPModuleLabel;
   std::string fVertexModuleLabel;
+  std::string fClusterModuleLabel;
+  std::string fTrackModuleLabel;
+  //ShowerModuleLabel:          "showerrecopandora"
+
+  std::string fPFPVertexAssnModuleLabel;
+  std::string fPFPClusterAssnModuleLabel;
+  std::string fPFPTrackAssnModuleLabel;
+
   TTree* fmytree;
   int fnVtx;
 };
@@ -59,6 +71,7 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
 {
   this->reconfigure(p);
   art::ServiceHandle<art::TFileService> tfs;
+
   fmytree = tfs->make<TTree>("mytree","mytree");
   fmytree->Branch("fnVtx",&fnVtx,"fnVtx/I");
 
@@ -68,6 +81,17 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
 
 bool PiZeroFilter::filter(art::Event & e)
 {
+  //produces< std::vector<recob::PFParticle> >();
+  //produces< std::vector<recob::Seed> >();
+  //produces< std::vector<recob::Track> >();
+  //produces< std::vector<recob::Vertex> >();
+  //produces< art::Assns<recob::PFParticle, recob::SpacePoint> >();
+  //produces< art::Assns<recob::PFParticle, recob::Cluster> >();
+  //produces< art::Assns<recob::PFParticle, recob::Seed> >();
+  //produces< art::Assns<recob::PFParticle, recob::Track> >();
+  //produces< art::Assns<recob::PFParticle, recob::Vertex> >();
+  //produces< art::Assns<recob::Track, recob::Hit> >();
+
   std::cout << "Hello" << std::endl;
   // Implementation of required member function here.
   std::unique_ptr<std::vector<ana::PiZeroROI> > pizeroroiVector( new std::vector<ana::PiZeroROI> );
@@ -118,7 +142,15 @@ bool PiZeroFilter::filter(art::Event & e)
 
 void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
 {
+  fPFPModuleLabel = p.get<std::string>("PFPModuleLabel");
   fVertexModuleLabel = p.get<std::string>("VertexModuleLabel");
+  fClusterModuleLabel = p.get<std::string>("ClusterModuleLabel");
+  fTrackModuleLabel = p.get<std::string>("TrackModuleLabel");
+  //ShowerModuleLabel:          "showerrecopandora"
+
+  fPFPVertexAssnModuleLabel = p.get<std::string>("PFPVertexAssnModuleLabel");
+  fPFPClusterAssnModuleLabel = p.get<std::string>("PFPClusterAssnModuleLabel");
+  fPFPTrackAssnModuleLabel = p.get<std::string>("PFPTrackAssnModuleLabel");
   // Implementation of optional member function here.
 }
 

@@ -2,12 +2,18 @@ BEGIN_PROLOG
 
 microboone_pizerofilter:
 { 
-    module_type:              "PiZeroFilter"
-    #PandoraModuleLabel:       "pandora"
-    VertexModuleLabel:        "pandoraNu"    
-    #VertexModuleLabelVec:         ["pandoraNu"]
-    #TrackModuleLabel:         "trackkalmanhit"
-    #VtxTrackAssnModuleLabelVec:   ["vtxPlusTrkPanKal"]
+    module_type:                "PiZeroFilter"
+
+    PFPModuleLabel:             "pandoraNu"
+    VertexModuleLabel:          "pandoraNu"
+    ClusterModuleLabel:         "pandoarNu"
+    TrackModuleLabel:           "pandoraNuKHit"
+    #ShowerModuleLabel:          "showerrecopandora"
+
+    PFPVertexAssnModuleLabel:   "pandoraNu"
+    PFPClusterAssnModuleLabel:  "pandoraNu"
+    PFPTrackAssnModuleLabel:    "pandoraNuKHit"
+    
 }
 
 END_PROLOG
