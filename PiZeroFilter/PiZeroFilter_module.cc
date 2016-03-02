@@ -9,6 +9,7 @@
 
 #include "art/Framework/Core/EDFilter.h"
 #include "art/Framework/Core/ModuleMacros.h"
+#include "art/Framework/Core/FindManyP.h"
 #include "art/Framework/Principal/Event.h"
 #include "art/Framework/Principal/Handle.h"
 #include "art/Framework/Principal/Run.h"
@@ -60,6 +61,11 @@ private:
   std::string fPFPClusterAssnModuleLabel;
   std::string fPFPTrackAssnModuleLabel;
 
+  float fMuonVertexProximityCut;
+  float fMuonTrackLengthCut;
+  float fTrackVertexProximityCut;
+  float fShowerVertexProximityCut;
+
   TTree* fmytree;
   int fnVtx;
 };
@@ -96,20 +102,31 @@ bool PiZeroFilter::filter(art::Event & e)
   // Implementation of required member function here.
   std::unique_ptr<std::vector<ana::PiZeroROI> > pizeroroiVector( new std::vector<ana::PiZeroROI> );
   //std::unique_ptr< art::Assns<recob::Vertex, ana::PiZeroROI::PiZeroROI > >  assnPiZeroROITagVertex( new art::Assns<recob::Vertex, anab::PiZeroROI>);
-  
-  art::Handle<std::vector<recob::PFParticle> > Pfp_h;
-  art::Handle<std::vector<recob::Vertex> > Vtx_h;
-  art::Handle<std::vector<recob::Cluster> > Cls_h;
-  art::Handle<std::vector<recob::Track> > Trk_h;
 
-  std::cout << fPFPModuleLabel << fVertexModuleLabel << fClusterModuleLabel << fTrackModuleLabel << std::endl;
-  e.getByLabel( fPFPModuleLabel, Pfp_h );
-  e.getByLabel( fVertexModuleLabel, Vtx_h );
-  e.getByLabel( fClusterModuleLabel, Cls_h );
-  e.getByLabel( fTrackModuleLabel, Trk_h );
+  art::ValidHandle<std::vector<recob::PFParticle> > Pfp_h = e.getValidHandle<std::vector<recob::PFParticle> >(fPFPModuleLabel);
+  art::ValidHandle<std::vector<recob::Vertex> > Vtx_h = e.getValidHandle<std::vector<recob::Vertex> >(fVertexModuleLabel);
+  art::ValidHandle<std::vector<recob::Cluster> > Cls_h = e.getValidHandle<std::vector<recob::Cluster> >(fClusterModuleLabel);
+  art::ValidHandle<std::vector<recob::Track> > Trk_h = e.getValidHandle<std::vector<recob::Track> >(fTrackModuleLabel);
 
   if(!(Pfp_h.isValid() && Vtx_h.isValid() && Cls_h.isValid() && Trk_h.isValid())) 
     throw std::exception();
+
+  const art::FindManyP<recob::Vertex> PfpVtx(Pfp_h, e, fPFPVertexAssnModuleLabel);
+  const art::FindManyP<recob::Cluster> PfpCls(Pfp_h, e, fPFPClusterAssnModuleLabel);
+  const art::FindManyP<recob::Track> PfpTrk(Pfp_h, e, fPFPTrackAssnModuleLabel);
+
+  //art::ValidHandle<std::vector<recob::PFParticle> > Pfp_h;
+  //art::ValidHandle<std::vector<recob::Vertex> > Vtx_h;
+  //art::ValidHandle<std::vector<recob::Cluster> > Cls_h;
+  //art::ValidHandle<std::vector<recob::Track> > Trk_h;
+
+  //std::cout << fPFPModuleLabel << fVertexModuleLabel << fClusterModuleLabel << fTrackModuleLabel << std::endl;
+  //e.getByLabel( fPFPModuleLabel, Pfp_h );
+  //e.getByLabel( fVertexModuleLabel, Vtx_h );
+  //e.getByLabel( fClusterModuleLabel, Cls_h );
+  //e.getByLabel( fTrackModuleLabel, Trk_h );
+
+  //const art::FindManyP<recob::Hit> findManyHits(clusterHandle, event, fClusterProducerLabel);
   
   std::vector<recob::PFParticle> const& PfpVector(*Pfp_h);
   std::vector<recob::Vertex> const& VtxVector(*Vtx_h);
@@ -122,6 +139,116 @@ bool PiZeroFilter::filter(art::Event & e)
   std::cout << "TrkVector size: " << TrkVector.size() << std::endl;
   
   std::cout << "Hello!" << std::endl;
+
+  // Compute ROI
+  std::vector<ana::PiZeroROI> pizeroroi_v;
+  std::vector<std::pair<int,int> > Vertex(3);
+  std::vector<std::pair<int,int> > TimePairs(3);
+  std::vector<std::pair<int,int> > WirePairs(3);
+  for(auto const Pfp : PfpVector) {
+
+    if(Pfp.IsPrimary() && (Pfp.PdgCode()==12 || Pfp.PdgCode()==14 || Pfp.PdgCode()==-12 || Pfp.PdgCode()==-14)) { // Nu
+
+      // Get Vertex info
+      //const & recob::Vertex v_p = PfpVtx.at(Pfp.Self());
+      auto const & v_ps = PfpVtx.at(Pfp.Self());
+      if(v_ps.size() != 1) { 
+	std::cout << "I Hate My Life!" << std::endl;
+      }
+      double xyz_p[3];
+      for(auto const & v_p : v_ps) {
+	v_p->XYZ(xyz_p);
+      }
+      
+      float max_trkl = -1;
+      int max_trkl_idx = -1;
+      for(auto const idx : Pfp.Daughters()) {
+
+        //const & recob::Vertex v_d = PfpVtx.at(PfpVector.at(idx).Self());
+	auto const & v_ds = PfpVtx.at(PfpVector.at(idx).Self());
+	if(v_ds.size() != 1) { 
+	  std::cout << "I Hate My Life! 222222222" << std::endl;
+	}
+        double xyz_d[3];
+        for(auto const & v_d : v_ds) {
+	  v_d->XYZ(xyz_d);
+	}
+        float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2));
+
+	if(PfpVector.at(idx).PdgCode() == 13 && dist<fMuonVertexProximityCut) { // Muon
+
+	  //const & recob::Track trk_d = PfpTrk.at(PfpVector.at(idx).Self());
+	  auto const & trk_ds = PfpTrk.at(PfpVector.at(idx).Self());
+	  if(trk_ds.size() != 1) {
+	    std::cout << "I Hate My Life! 33333333" << std::endl;
+	  }
+	  for(auto const & trk_d : trk_ds) {
+	    float trkl = (trk_d->Vertex()-trk_d->End()).Mag();
+
+	    if(trkl > max_trkl) {
+	      max_trkl = trkl;
+	      max_trkl_idx = idx;
+	    }	    
+	  }
+	}
+      }
+
+      if(max_trkl_idx == -1 || max_trkl<fMuonTrackLengthCut)
+	continue;
+    }
+  }
+      /*
+      float startw[3] = {0.}
+      float startt[3] = {0.}
+      float endw[3] = {0.}
+      float endt[3] = {0.}
+      unsigned int nShowers = 0;
+      for(auto const idx : Pfp.Daughters()) {
+
+	// Get daughters of neutrino and associated tracks
+	const & recob::Vertex v_d = PfpVtx.at(PfpVector.at(idx).Self());	
+	double xyz_d[3];
+	v_d.XYZ(xyz_d);
+	float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2))
+
+	if(PfpVector.at(idx).PdgCode() == 13) { // Muon
+	  
+	  //const & recob::Track trk_d = PfpTrk.at(PfpVector.at(idx).Self());
+	  //If track is close enough to the neutrino vertex
+	  if(dist < fTrackVertexProximityCut) { 
+	    const & recob::Cluster cls_d = PfpCls.at(PfpVector.at(idx).Self());
+	    auto c_idx = cls_d.Plane().Plane;
+	    startw[c_idx] = std::min(startw[c_idx],std::min(cls.StartWire(),cls.EndWire()));
+	    endw[c_idx] = std::max(endw[c_idx],std::max(cls.StartWire(),cls.EndWire()));
+	    startt[c_idx] = std::min(startt[c_idx],std::min(cls.StartTick(),cls.EndTick()));
+	    endt[c_idx] = std::max(endr[c_idx],std::max(cls.StartTick(),cls.EndTick()));	    
+	  }
+
+	} else if (PfpVector.at(idx).PdgCode() == 11) { // Shower
+	  // Get Cluster info
+	  if(dist < fShowerVertexProximityCut) { 
+
+	    const & recob::Cluster cls_t = PfpCls.at(PfpVector.at(max_trkl_idx).Self());
+	    const & recob::Cluster cls_s = PfpCls.at(PfpVector.at(idx).Self());
+	    
+	    if(cls_t.Plane().Plane
+
+
+	    auto c_idx = cls_d.Plane().Plane;
+	    startw[c_idx] = std::min(startw[c_idx],std::min(cls.StartWire(),cls.EndWire()));
+	    endw[c_idx] = std::max(endw[c_idx],std::max(cls.StartWire(),cls.EndWire()));
+	    startt[c_idx] = std::min(startt[c_idx],std::min(cls.StartTick(),cls.EndTick()));
+	    endt[c_idx] = std::max(endr[c_idx],std::max(cls.StartTick(),cls.EndTick()));
+
+	  ++nShowers;
+
+	} else {
+	  std::cout << "NOOOOOOOO" << std::endl;
+	}
+      }
+    }
+  }
+      */  
   fnVtx = 0;
   for(auto const Vtx : VtxVector) {
     std::cout << "VtxID: " << Vtx.ID() << std::endl;
@@ -169,6 +296,12 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
   fPFPClusterAssnModuleLabel = p.get<std::string>("PFPClusterAssnModuleLabel");
   fPFPTrackAssnModuleLabel = p.get<std::string>("PFPTrackAssnModuleLabel");
   // Implementation of optional member function here.
+
+  fMuonVertexProximityCut = p.get<float>("MuonVertexProximityCut");
+  fMuonTrackLengthCut = p.get<float>("MuonTrackLengthCut");
+  fTrackVertexProximityCut = p.get<float>("TrackVertexProximityCut");
+  fShowerVertexProximityCut = p.get<float>("ShowerVertexProximityCut");
+
 }
 
 DEFINE_ART_MODULE(PiZeroFilter)
