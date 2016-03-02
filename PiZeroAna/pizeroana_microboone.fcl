@@ -1,0 +1,13 @@
+BEGIN_PROLOG
+
+microboone_pizeroana:
+{ 
+    module_type:              "PiZeroAna"
+    ROIModuleLabel:        "pizerofilter"    
+    #VertexModuleLabelVec:         ["pandoraNu"]
+    #TrackModuleLabel:         "trackkalmanhit"
+    #VtxTrackAssnModuleLabelVec:   ["vtxPlusTrkPanKal"]
+}
+
+END_PROLOG
+

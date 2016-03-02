@@ -54,6 +54,7 @@ include(BuildPlugins)
 # ADD SOURCE CODE SUBDIRECTORIES HERE
 add_subdirectory(PiZeroROI)
 add_subdirectory(PiZeroFilter)
+add_subdirectory(PiZeroAna)
 
 # tests
 add_subdirectory(test)

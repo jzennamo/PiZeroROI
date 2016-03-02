@@ -60,7 +60,7 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   this->reconfigure(p);
   art::ServiceHandle<art::TFileService> tfs;
   fmytree = tfs->make<TTree>("mytree","mytree");
-  fmytree->Branch("nVtx",fnVtx,"nVtx/I");
+  fmytree->Branch("fnVtx",&fnVtx,"fnVtx/I");
 
   // Call appropriate produces<>() functions here.
   produces<std::vector<ana::PiZeroROI> >();
@@ -80,18 +80,25 @@ bool PiZeroFilter::filter(art::Event & e)
   std::vector<recob::Vertex> const& VtxVector(*Vtx_h);
   std::cout << VtxVector.size() << std::endl;
   
-  std::cout << "Hello!";
+  std::cout << "Hello!" << std::endl;
   fnVtx = 0;
   for(auto const Vtx : VtxVector) {
-    std::vector<std::pair<int, int> > WireTimePairs;
+    std::cout << "VtxID: " << Vtx.ID() << std::endl;
+    std::vector<std::pair<int, int> > VertexPairs;
+    std::vector<std::pair<int, int> > TimePairs;
+    std::vector<std::pair<int, int> > WirePairs;
     for(int i = 0; i<3; ++i) {
-      WireTimePairs.emplace_back(i,Vtx.ID());
+      VertexPairs.emplace_back(i,Vtx.ID());
+      TimePairs.emplace_back(i+3,Vtx.ID());
+      WirePairs.emplace_back(i+6,Vtx.ID());
     }
     ana::PiZeroROI pizeroroi;
-    pizeroroi.SetVertex( WireTimePairs );
+    pizeroroi.SetVertex( VertexPairs );
+    pizeroroi.SetROI( WirePairs, TimePairs );
     pizeroroiVector->emplace_back(pizeroroi);
     ++fnVtx;
   }
+  std::cout << fnVtx << std::endl;
   fmytree->Fill();
   
   //util::CreateAssn(*this, e, *pizeroroiVector, vtx, *assnPiZeroROITagVertex);
