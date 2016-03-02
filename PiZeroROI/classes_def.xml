@@ -1,0 +1,11 @@
+<lcgdict>
+  <class name="std::pair<int, int>"               />
+  <class name="std::vector<std::pair<int, int> >" />
+
+  <class name="ana::PiZeroROI" ClassVersion="10">
+   <version ClassVersion="10" checksum="3553340236"/>
+    </class>
+
+ <class name="art::Wrapper<std::vector<ana::PiZeroROI> >"/>
+ <class name="std::vector<ana::PiZeroROI>"/>
+</lcgdict>

@@ -1,10 +1,11 @@
 # basic source code CMakeLists.txt
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR} )
 
-art_make_library( LIBRARY_NAME  ub_PiZeroROI
-	SOURCE PiZeroROI.cxx
-	LIBRARIES
-                 ${SIMULATIONBASE}
-                 ${LARRECO_LIB}
+art_make( LIBRARY_NAME  ub_PiZeroROI
+#	SOURCE PiZeroROI.cxx
+	LIB_LIBRARIES
+#                 ${SIMULATIONBASE}
+#                 ${LARRECO_LIB}
                  ${LARDATA_LIB}
                  ${ART_FRAMEWORK_CORE}
                  ${ART_FRAMEWORK_PRINCIPAL}
@@ -19,8 +20,8 @@ art_make_library( LIBRARY_NAME  ub_PiZeroROI
                  ${FHICLCPP}
                  ${CETLIB}
                  ${ROOT_GEOM}
-                 ${ROOT_XMLIO}
-                 ${ROOT_GDML}
+ #                ${ROOT_XMLIO}
+ #                ${ROOT_GDML}
                  ${ROOT_BASIC_LIB_LIST}
 
 )

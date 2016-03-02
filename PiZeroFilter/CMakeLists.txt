@@ -1,4 +1,6 @@
 # basic source code CMakeLists.txt
+#include_directories( ${CMAKE_CURRENT_SOURCE_DIR} )
+#include_directories( $ENV{NUTOOLS_INC} )
 
 art_make( 
 	  MODULE_LIBRARIES

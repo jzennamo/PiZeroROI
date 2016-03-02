@@ -28,7 +28,7 @@ namespace ana{
     /// Default constructor
     PiZeroROI();
     /// Default destructor
-    virtual ~PiZeroROI(){};
+    //virtual ~PiZeroROI(){};
     
     PiZeroROI(const std::vector < std::pair< int, int > > Wire,
 	      const std::vector < std::pair< int, int > > Time);

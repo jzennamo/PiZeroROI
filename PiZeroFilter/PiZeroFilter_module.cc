@@ -63,21 +63,24 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   fmytree->Branch("nVtx",fnVtx,"nVtx/I");
 
   // Call appropriate produces<>() functions here.
-  produces< std::vector<ana::PiZeroROI > >();
+  produces<std::vector<ana::PiZeroROI> >();
 }
 
 bool PiZeroFilter::filter(art::Event & e)
 {
+  std::cout << "Hello" << std::endl;
   // Implementation of required member function here.
-  std::unique_ptr< std::vector< ana::PiZeroROI > > pizeroroiVector( new std::vector<ana::PiZeroROI> );
+  std::unique_ptr<std::vector<ana::PiZeroROI> > pizeroroiVector( new std::vector<ana::PiZeroROI> );
   //std::unique_ptr< art::Assns<recob::Vertex, ana::PiZeroROI::PiZeroROI > >  assnPiZeroROITagVertex( new art::Assns<recob::Vertex, anab::PiZeroROI>);
-
+  
   art::Handle<std::vector<recob::Vertex> > Vtx_h;
   e.getByLabel( fVertexModuleLabel, Vtx_h );
 
   if(!Vtx_h.isValid()) throw std::exception();
   std::vector<recob::Vertex> const& VtxVector(*Vtx_h);
+  std::cout << VtxVector.size() << std::endl;
   
+  std::cout << "Hello!";
   fnVtx = 0;
   for(auto const Vtx : VtxVector) {
     std::vector<std::pair<int, int> > WireTimePairs;
@@ -92,12 +95,14 @@ bool PiZeroFilter::filter(art::Event & e)
   fmytree->Fill();
   
   //util::CreateAssn(*this, e, *pizeroroiVector, vtx, *assnPiZeroROITagVertex);
-
+  
   e.put( std::move(pizeroroiVector) );
   if(pizeroroiVector->size() > 0)
     return true;
 
   return false;
+  
+  //return true;
   //e.put( std::move(assnPiZeroROITagVertex) );
 }
 
