@@ -16,9 +16,10 @@ microboone_pizerofilter:
 
     MuonTrackLengthCut: 75.
     TrackVertexProximityCut: 5.
-    ShowerVertexProximityCut: 20.  
-    ShowerDetachedProximityCut: 5.
-    MinNumDetachedShowerCut: 4
+    ShowerVertex2dProximityCut: 80.  
+    ShowerDetached2dProximityCut: 10.
+    MinMinDetachedShowersPerPlaneCut: 1
+    MinMaxDetachedShowersPerPlaneCut: 2
 }
 
 END_PROLOG

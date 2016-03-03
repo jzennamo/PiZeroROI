@@ -63,9 +63,10 @@ private:
 
   float fMuonTrackLengthCut;
   float fTrackVertexProximityCut;
-  float fShowerVertexProximityCut;
-  float fShowerDetachedProximityCut;
-  float fMinNumDetachedShowerCut;
+  float fShowerVertex2dProximityCut;
+  float fShowerDetached2dProximityCut;
+  float fMinMinDetachedShowersPerPlaneCut;
+  float fMinMaxDetachedShowersPerPlaneCut;
 
   TTree* fmytree;
   int fnVtx;
@@ -205,7 +206,7 @@ bool PiZeroFilter::filter(art::Event & e)
       float startt[3] = {0.};
       float endw[3] = {0.};
       float endt[3] = {0.};
-      unsigned int nDetachedShowers = 0;
+      unsigned int nDetachedShowers[3] = {0};
       for(auto const idx : Pfp.Daughters()) {
 
 	// Get daughters of neutrino and associated tracks
@@ -239,25 +240,26 @@ bool PiZeroFilter::filter(art::Event & e)
 	  }
 	} else if (PfpVector.at(idx).PdgCode() == 11) { // Shower
 	  //If track is close enough to the neutrino vertex
-	  if(dist < fShowerVertexProximityCut) { 
-	    //const & recob::Cluster cls_d = PfpCls.at(PfpVector.at(idx).Self());
-	    auto const & cls_ds = PfpCls.at(PfpVector.at(idx).Self());
-	    for(auto const & cls_d : cls_ds) {
-	      auto c_idx = cls_d->Plane().Plane;
+	  auto const & cls_ds = PfpCls.at(PfpVector.at(idx).Self());
+	  for(auto const & cls_d : cls_ds) {
+	    auto c_idx = cls_d->Plane().Plane;
+	    float dist2d = std::sqrt(std::pow(cls_d->StartWire()-pstartw[c_idx],2)+std::pow(cls_d->StartTick()-pstartt[c_idx],2));
+	    if(dist2d < fShowerVertex2dProximityCut) { 
 	      startw[c_idx] = std::min(startw[c_idx],std::min(cls_d->StartWire(),cls_d->EndWire()));
 	      endw[c_idx] = std::max(endw[c_idx],std::max(cls_d->StartWire(),cls_d->EndWire()));
 	      startt[c_idx] = std::min(startt[c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
 	      endt[c_idx] = std::max(endt[c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
 	    }
-	  }
-	  if(dist > fShowerDetachedProximityCut) {
-	    ++nDetachedShowers;
+	    if(dist2d > fShowerDetached2dProximityCut) 
+	      nDetachedShowers[c_idx]++;
 	  }
 	} else {
 	  std::cout << "NOOOOOOOO" << std::endl;
 	}
       } // loop over daughters
-      if(nDetachedShowers < fMinNumDetachedShowerCut) 
+      unsigned int MinDetachedShowersPerPlane = std::min(nDetachedShowers[0],std::min(nDetachedShowers[1],nDetachedShowers[2]));
+      unsigned int MaxDetachedShowersPerPlane = std::max(nDetachedShowers[0],std::max(nDetachedShowers[1],nDetachedShowers[2]));
+      if(MinDetachedShowersPerPlane < fMinMinDetachedShowersPerPlaneCut && MaxDetachedShowersPerPlane < fMinMaxDetachedShowersPerPlaneCut)
 	continue;
 
       pass = true;
@@ -300,10 +302,10 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
 
   fMuonTrackLengthCut = p.get<float>("MuonTrackLengthCut");
   fTrackVertexProximityCut = p.get<float>("TrackVertexProximityCut");
-  fShowerVertexProximityCut = p.get<float>("ShowerVertexProximityCut");
-  fShowerDetachedProximityCut = p.get<float>("ShowerDetachedProximityCut");
-  fMinNumDetachedShowerCut = p.get<int>("MinNumDetachedShowerCut");
-
+  fShowerVertex2dProximityCut = p.get<float>("ShowerVertex2dProximityCut");
+  fShowerDetached2dProximityCut = p.get<float>("ShowerDetached2dProximityCut");
+  fMinMinDetachedShowersPerPlaneCut = p.get<int>("MinMinDetachedShowersPerPlaneCut");
+  fMinMaxDetachedShowersPerPlaneCut = p.get<int>("MinMaxDetachedShowersPerPlaneCut");
 }
 
 DEFINE_ART_MODULE(PiZeroFilter)
