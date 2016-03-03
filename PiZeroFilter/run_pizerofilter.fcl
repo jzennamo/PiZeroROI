@@ -71,3 +71,10 @@ outputs: {
             compressionLevel: 1
             }
 }
+
+physics.filters.pizerofilter.MuonTrackLengthCut: 25.
+physics.filters.pizerofilter.TrackVertexProximityCut: 5.
+physics.filters.pizerofilter.ShowerVertex2dProximityCut: 80.
+physics.filters.pizerofilter.ShowerDetached2dProximityCut: 10.
+physics.filters.pizerofilter.MinMinDetachedShowersPerPlaneCut: 0
+physics.filters.pizerofilter.MinMaxDetachedShowersPerPlaneCut: 0

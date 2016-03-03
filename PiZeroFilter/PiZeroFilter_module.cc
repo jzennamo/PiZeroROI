@@ -158,7 +158,7 @@ bool PiZeroFilter::filter(art::Event & e)
       if(v_ps.size() != 1) { 
 	std::cout << "I Hate My Life!" << std::endl;
       }
-      double xyz_p[3];
+      double xyz_p[3] = {0.,0.,0.,};
       for(auto const & v_p : v_ps) {
 	v_p->XYZ(xyz_p);
       }
@@ -166,33 +166,40 @@ bool PiZeroFilter::filter(art::Event & e)
       // Find muon which is defined as longest track near neutrino vertex within tolerance
       float max_trkl = -1;
       int max_trkl_idx = -1;
-      for(auto idx : Pfp.Daughters()) {
+      for(auto const idx : Pfp.Daughters()) {
 
-        //const & recob::Vertex v_d = PfpVtx.at(PfpVector.at(idx).Self());
-	auto const & v_ds = PfpVtx.at(PfpVector.at(idx).Self());
-	if(v_ds.size() != 1) { 
-	  std::cout << "I Hate My Life! 222222222" << std::endl;
-	}
-        double xyz_d[3];
-        for(auto const & v_d : v_ds) {
-	  v_d->XYZ(xyz_d);
-	}
-        float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2));
+	if(PfpVector.at(idx).PdgCode() == 13) { 
 
-	if(PfpVector.at(idx).PdgCode() == 13 && dist<fTrackVertexProximityCut) { // Muon
-
-	  //const & recob::Track trk_d = PfpTrk.at(PfpVector.at(idx).Self());
-	  auto const & trk_ds = PfpTrk.at(PfpVector.at(idx).Self());
-	  if(trk_ds.size() != 1) {
-	    std::cout << "I Hate My Life! 33333333" << std::endl;
+	  //const & recob::Vertex v_d = PfpVtx.at(PfpVector.at(idx).Self());
+	  auto const & v_ds = PfpVtx.at(PfpVector.at(idx).Self());
+	  if(v_ds.size() == 0) { 
+	    continue;
+	  } else if (v_ds.size() > 1) {
+	    std::cout << "I Hate My Life! 222222222: " << v_ds.size() << std::endl;
 	  }
-	  for(auto const & trk_d : trk_ds) {
-	    float trkl = (trk_d->Vertex()-trk_d->End()).Mag();
+	  double xyz_d[3] = {0.,0.,0.};
+	  for(auto const & v_d : v_ds) {
+	    v_d->XYZ(xyz_d);
+	  }
+	  float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2));
 
-	    if(trkl > max_trkl) {
-	      max_trkl = trkl;
-	      max_trkl_idx = idx;
-	    }	    
+	  if(dist<fTrackVertexProximityCut) { // Muon
+
+	    //const & recob::Track trk_d = PfpTrk.at(PfpVector.at(idx).Self());
+	    auto const & trk_ds = PfpTrk.at(PfpVector.at(idx).Self());
+	    if(trk_ds.size() == 0) {
+	      continue;
+	    } else if (trk_ds.size() > 1) {
+	      std::cout << "I Hate My Life! 33333333: " << trk_ds.size() << std::endl;
+	    }
+	    for(auto const & trk_d : trk_ds) {
+	      float trkl = (trk_d->Vertex()-trk_d->End()).Mag();	      
+	      if(trkl > max_trkl) {
+		max_trkl = trkl;
+		max_trkl_idx = PfpVector.at(idx).Self();
+		std::cout << "(idx,Self): (" << idx << "," << PfpVector.at(idx).Self() << ")" << std::endl;
+	      }	    
+	    }
 	  }
 	}
       }
@@ -200,28 +207,31 @@ bool PiZeroFilter::filter(art::Event & e)
       if(max_trkl_idx == -1 || max_trkl<fMuonTrackLengthCut) 
 	continue;
 
-      float pstartw[3] = {0.};
-      float pstartt[3] = {0.};
-      float startw[3] = {0.};
-      float startt[3] = {0.};
-      float endw[3] = {0.};
-      float endt[3] = {0.};
-      unsigned int nDetachedShowers[3] = {0};
+      float pstartw[3] = {8256., 8256., 8256.};
+      float pstartt[3] = {9600., 9600., 9600.};
+      float startw[3] = {8256., 8256., 8256.};
+      float startt[3] = {9600., 9600., 9600.};
+      float endw[3] = {0.,0.,0.};
+      float endt[3] = {0.,0.,0.};
+      unsigned int nDetachedShowers[3] = {0,0,0};
       for(auto const idx : Pfp.Daughters()) {
 
-	// Get daughters of neutrino and associated tracks
-	//const & recob::Vertex v_d = PfpVtx.at(PfpVector.at(idx).Self());	
-	auto const & v_ds = PfpVtx.at(PfpVector.at(idx).Self());	
-        if(v_ds.size() != 1) {
-	  std::cout << "I Hate My Life! 4444444444444" << std::endl;
-        }	
-	double xyz_d[3];
-	for(auto const & v_d : v_ds) {
-	  v_d->XYZ(xyz_d);
-	}
-	float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2));
-
 	if(PfpVector.at(idx).PdgCode() == 13) { // Muon
+
+	  // Get daughters of neutrino and associated tracks
+	  //const & recob::Vertex v_d = PfpVtx.at(PfpVector.at(idx).Self());	
+	  auto const & v_ds = PfpVtx.at(PfpVector.at(idx).Self());	
+	  if(v_ds.size() == 0) {
+	    continue;
+	  } else if (v_ds.size() > 1) {
+	    std::cout << "I Hate My Life! 4444444444444: " << v_ds.size() << std::endl;
+	  }	
+	  double xyz_d[3] = {0., 0., 0.};
+	  for(auto const & v_d : v_ds) {
+	    v_d->XYZ(xyz_d);
+	  }
+	  float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2));
+
 	  //If track is close enough to the neutrino vertex
 	  if(dist < fTrackVertexProximityCut) { 
 	    //const & recob::Cluster cls_d = PfpCls.at(PfpVector.at(idx).Self());
@@ -232,7 +242,7 @@ bool PiZeroFilter::filter(art::Event & e)
 	      endw[c_idx] = std::max(endw[c_idx],std::max(cls_d->StartWire(),cls_d->EndWire()));
 	      startt[c_idx] = std::min(startt[c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
 	      endt[c_idx] = std::max(endt[c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
-	      if(int(idx) == max_trkl_idx) {
+	      if(int(PfpVector.at(idx).Self()) == max_trkl_idx) {
 		pstartw[c_idx] = startw[c_idx];
 		pstartt[c_idx] = startt[c_idx];
 	      }
@@ -249,9 +259,9 @@ bool PiZeroFilter::filter(art::Event & e)
 	      endw[c_idx] = std::max(endw[c_idx],std::max(cls_d->StartWire(),cls_d->EndWire()));
 	      startt[c_idx] = std::min(startt[c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
 	      endt[c_idx] = std::max(endt[c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
+	      if(dist2d > fShowerDetached2dProximityCut) 
+		nDetachedShowers[c_idx]++;
 	    }
-	    if(dist2d > fShowerDetached2dProximityCut) 
-	      nDetachedShowers[c_idx]++;
 	  }
 	} else {
 	  std::cout << "NOOOOOOOO" << std::endl;
