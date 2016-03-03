@@ -70,7 +70,7 @@ _vtx = vtx;
 
 }
 
-std::vector < std::pair <int, int > > ana::PiZeroROI::GetVertex(){
+std::vector < std::pair <int, int > > ana::PiZeroROI::GetVertex() const{
 
   std::vector < std::pair <int, int > > output = _vtx;
 
@@ -79,7 +79,7 @@ std::vector < std::pair <int, int > > ana::PiZeroROI::GetVertex(){
 }
 
 
-std::vector < std::pair< int, int > > ana::PiZeroROI::GetWireROI(){
+std::vector < std::pair< int, int > > ana::PiZeroROI::GetWireROI() const{
 
   std::vector < std::pair <int, int > > output = _wire_range;
 
@@ -89,7 +89,7 @@ std::vector < std::pair< int, int > > ana::PiZeroROI::GetWireROI(){
 
 
 
-std::vector < std::pair< int, int > > ana::PiZeroROI::GetTimeROI(){
+std::vector < std::pair< int, int > > ana::PiZeroROI::GetTimeROI() const {
 
   std::vector < std::pair <int, int > > output =  _t_range;
 
