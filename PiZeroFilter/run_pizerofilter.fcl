@@ -1,14 +1,17 @@
 #include "services_microboone.fcl"
 #include "pizerofilter_microboone.fcl"
+#include "litemc_wire.fcl"
+#include "litemc_pizeroroi.fcl"
 
-process_name : PiZeroFilter      #The process name must NOT contain any underscores
+process_name: PiZeroFilter      #The process name must NOT contain any underscores
 
-source : {
-  module_type : RootInput
-  maxEvents   : -1
+source: 
+{
+  module_type: RootInput
+  maxEvents:   -1
 }
 
-services : {
+services: {
 
   scheduler:               { defaultExceptions: false }    # Make all uncaught exceptions fatal.
   TFileService: { fileName: "PiZeroFilter.root" }
@@ -20,17 +23,17 @@ services : {
   user:
   {
 	#BELOW you see a list of the common services! Uncomment the ones you need.
-  	#ExptGeoHelperInterface:         @local::microboone_geometry_helper
-  	#Geometry:                       @local::microboone_geo
- 	#DetectorProperties:             @local::microboone_detproperties
- 	#LArProperties:                  @local::microboone_properties
- 	#DatabaseUtil:                   @local::microboone_database
- 	#TimeService:                    @local::microboone_timeservice
- 	#SpaceCharge:                    @local::microboone_spacecharge
- 	#SeedService:                    @local::microboone_seedservice
-	#LArFFT:                         @local::microboone_larfft
-	#SignalShapingServiceMicroBooNE: @local::microboone_signalshapingservice
-	#BackTracker:                    @local::microboone_backtracker  
+  	ExptGeoHelperInterface:         @local::microboone_geometry_helper
+  	Geometry:                       @local::microboone_geo
+ 	DetectorProperties:             @local::microboone_detproperties
+ 	LArProperties:                  @local::microboone_properties
+ 	DatabaseUtil:                   @local::microboone_database
+ 	TimeService:                    @local::microboone_timeservice
+ 	SpaceCharge:                    @local::microboone_spacecharge
+ 	SeedService:                    @local::microboone_seedservice
+	LArFFT:                         @local::microboone_larfft
+	SignalShapingServiceMicroBooNE: @local::microboone_signalshapingservice
+	BackTracker:                    @local::microboone_backtracker  
 	#MemoryPeakReporter: {}
 	#OpDigiProperties:               @local::microboone_opdigiproperties
   }
@@ -39,19 +42,25 @@ services : {
 
 physics: {
 
-  producers : {
+  producers: {
      # ParameterSets for zero or more producer modules
   }
   analyzers: {
      # ParameterSets for zero or more analyzer modules
+     wire:      @local::litemc_wire
+     pizeroroi:   @local::litemc_pizeroroi
+
   }
 
-  filters : {
+  filters: {
         pizerofilter: @local::microboone_pizerofilter
      # ParameterSets for zero or more filter modules
   }
 
-  path0 : [ pizerofilter ]
+  analyzeIt:[wire, 
+             pizeroroi
+             ]
+  path0: [ pizerofilter ]
   #path1 : [  comma separated list of module labels of producer or filter modules  ]
 
   #path2 : [  comma separated list of module labels of analyzer or output modules  ]
@@ -59,7 +68,7 @@ physics: {
 
   stream: [ out0 ]
   trigger_paths: [ path0 ]
-  end_paths:     [ stream ]
+  end_paths:     [ analyzeIt, stream ]
 
 }
 
@@ -72,9 +81,14 @@ outputs: {
             }
 }
 
-physics.filters.pizerofilter.MuonTrackLengthCut: 25.
-physics.filters.pizerofilter.TrackVertexProximityCut: 5.
-physics.filters.pizerofilter.ShowerVertex2dProximityCut: 80.
-physics.filters.pizerofilter.ShowerDetached2dProximityCut: 10.
-physics.filters.pizerofilter.MinMinDetachedShowersPerPlaneCut: 0
-physics.filters.pizerofilter.MinMaxDetachedShowersPerPlaneCut: 0
+physics.filters.pizerofilter.MuonTrackLengthCut: 25.             # cm
+physics.filters.pizerofilter.TrackVertexProximityCut: 5.         # cm
+physics.filters.pizerofilter.ShowerVertex2dProximityCut: 80.     # wire-tick
+physics.filters.pizerofilter.ShowerDetached2dProximityCut: 10.   # wire-tick
+physics.filters.pizerofilter.MinMinDetachedShowersPerPlaneCut: 0 # number of detachted shower in the plane
+physics.filters.pizerofilter.MinMaxDetachedShowersPerPlaneCut: 0 # 
+
+services.user.DetectorProperties.NumberTimeSamples:                             6400
+services.user.DetectorProperties.ReadOutWindowSize:                             6400
+services.user.TimeService.InheritClockConfig:                                   false
+services.user.TimeService.TriggerOffsetTPC:                                     -0.400e3

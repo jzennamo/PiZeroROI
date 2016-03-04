@@ -1,8 +1,8 @@
 # ======================================================================
-#  GoldenPiZero main build file
+#  PiZeroROI main build file
 #
 #  cd .../path/to/build/directory
-#  source .../path/to/GoldenPiZero/ups/setup_for_development <-d|-p>
+#  source .../path/to/PiZeroROI/ups/setup_for_development <-d|-p>
 #  cmake [-DCMAKE_INSTALL_PREFIX=/install/path]
 #        -DCMAKE_BUILD_TYPE=$CETPKG_TYPE
 #        $CETPKG_SOURCE
@@ -16,7 +16,7 @@
 # use cmake 2.8 or later
 cmake_minimum_required (VERSION 2.8)
 
-project(GoldenPiZero)
+project(PiZeroROI)
 
 # cetbuildtools contains our cmake modules
 SET ( CETBUILDTOOLS_VERSION $ENV{CETBUILDTOOLS_VERSION} )

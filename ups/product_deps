@@ -2,7 +2,7 @@
 
 # The *parent* line must the first non-commented line and defines this product and version
 # The version should be of the form vxx_yy_zz (e.g. v01_02_03)
-parent GoldenPiZero v00_01_00
+parent PiZeroROI v00_01_00
 defaultqual e9
 
 # These optional lines define the installed directories where headers,
@@ -32,20 +32,20 @@ flcdir  product_dir     fcl
 # Add the dependent product and version
 
 product          version
-lardata			v04_36_00
+lardata		 v04_22_01
 #gcc		v4_9_3
 cetbuildtools   v4_18_03       -       only_for_build
 end_product_list
 
 # We now define allowed qualifiers and the corresponding qualifiers for the depdencies.
 # Make a table by adding columns before "notes". 
-qualifier
-e9:noifdh:debug
-e9:noifdh:opt
-e9:noifdh:prof
-e9:debug
-e9:opt
-e9:prof
+qualifier      	  lardata 	  notes
+#e9:noifdh:debug	
+#e9:noifdh:opt	  
+#e9:noifdh:prof
+e9:debug	e9:debug
+e9:opt		e9:opt
+e9:prof		e9:prof
 end_qualifier_list
 
 # Preserve tabs and formatting in emacs and vi / vim:
