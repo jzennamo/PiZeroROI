@@ -49,33 +49,34 @@ physics: {
      # ParameterSets for zero or more analyzer modules
      wire:      @local::litemc_wire
      pizeroroi:   @local::litemc_pizeroroi
-
   }
 
   filters: {
         pizerofilter: @local::microboone_pizerofilter
+
      # ParameterSets for zero or more filter modules
   }
 
-  analyzeIt:[wire, 
+  analyzeIt:[
+             wire, 
              pizeroroi
              ]
   path0: [ pizerofilter ]
+  stream: [ out0 ]
   #path1 : [  comma separated list of module labels of producer or filter modules  ]
 
   #path2 : [  comma separated list of module labels of analyzer or output modules  ]
   #path3 : [  comma separated list of module labels of analyzer or output modules  ]
 
-  stream: [ out0 ]
+
   trigger_paths: [ path0 ]
-  end_paths:     [ analyzeIt, stream ]
+  end_paths:    [ analyzeIt, stream ]
 
 }
 
 outputs: {
     out0: { module_type: RootOutput
             fileName: "output_file.root"
-            fastCloning: false 
             SelectEvents: { SelectEvents: [ path0 ] }
             compressionLevel: 1
             }
@@ -85,10 +86,13 @@ physics.filters.pizerofilter.MuonTrackLengthCut: 25.             # cm
 physics.filters.pizerofilter.TrackVertexProximityCut: 5.         # cm
 physics.filters.pizerofilter.ShowerVertex2dProximityCut: 80.     # wire-tick
 physics.filters.pizerofilter.ShowerDetached2dProximityCut: 10.   # wire-tick
-physics.filters.pizerofilter.MinMinDetachedShowersPerPlaneCut: 0 # number of detachted shower in the plane
-physics.filters.pizerofilter.MinMaxDetachedShowersPerPlaneCut: 0 # 
+#physics.filters.pizerofilter.MinMinDetachedShowersPerPlaneCut: 0 # number of detachted shower in the plane
+#physics.filters.pizerofilter.MinMaxDetachedShowersPerPlaneCut: 0 # 
 
 services.user.DetectorProperties.NumberTimeSamples:                             6400
 services.user.DetectorProperties.ReadOutWindowSize:                             6400
 services.user.TimeService.InheritClockConfig:                                   false
 services.user.TimeService.TriggerOffsetTPC:                                     -0.400e3
+
+physics.analyzers.wire.SelectEvents: { SelectEvents: [ path0 ] }
+physics.analyzers.pizeroroi.SelectEvents: { SelectEvents: [ path0 ] }
