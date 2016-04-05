@@ -67,6 +67,7 @@ private:
   float fShowerDetached2dProximityCut;
   float fMinMinDetachedShowersPerPlaneCut;
   float fMinMaxDetachedShowersPerPlaneCut;
+  float fPadding;
 
   TTree* fmytree;
   int fnVtx;
@@ -134,51 +135,74 @@ bool PiZeroFilter::filter(art::Event & e)
   std::map<int,std::vector<float> > endw;
   std::map<int,std::vector<float> > endt;
   std::map<int,std::vector<int> > nDetachedShowers;
+  // iterate through all the PFParticles 
   for(auto const Pfp : PfpVector) {
-
+    
+    // Select only if Primary PFParticle is a neutrino
     if(Pfp.IsPrimary() && (Pfp.PdgCode()==12 || Pfp.PdgCode()==14 || Pfp.PdgCode()==-12 || Pfp.PdgCode()==-14)) { // Nu
 
       // Get neutrino vertex info
       auto const & v_ps = PfpVtx.at(Pfp.Self());
-      if(v_ps.size() != 1) { 
-	std::cout << "I Hate My Life!" << std::endl;
-      }
-      double xyz_p[3] = {0.,0.,0.,};
+      // Save PFparticle vtx in v_ps should be size 1 because 
+      // a PFparticle should only have one vertex
+      if(v_ps.size() != 1) { std::cout << "PFParticle has more than one vtx?!" << std::endl; }
+      
+      //Store the neutrino vtx information in temporary container
+      double xyz_p[3] = {0.,0.,0.};
       for(auto const & v_p : v_ps) {
 	v_p->XYZ(xyz_p);
       }
 
-      // Find muon which is defined as longest track near neutrino vertex within tolerance
+      // Iteration through all PFParticle daughters 
       for(auto const idx : Pfp.Daughters()) {
 
+	// Want to find a muon, which is defined as the longest track daughter within tolerance
 	if(PfpVector.at(idx).PdgCode() == 13) { // Track-like object
 
-	  //const & recob::Vertex v_d = PfpVtx.at(PfpVector.at(idx).Self());
+	  //Checking the number of vertices associated with the track object
 	  auto const & v_ds = PfpVtx.at(PfpVector.at(idx).Self());
+
 	  if(v_ds.size() == 0) { 
+	    //Skip the track if it has no vertex
 	    continue;
 	  } else if (v_ds.size() > 1) {
-	    std::cout << "I Hate My Life! 222222222: " << v_ds.size() << std::endl;
+	    //Complain if the track contains more than one vertex
+	    std::cout << "Daughter Track has more than one vertex!? " << v_ds.size() << std::endl;
 	  }
+
+	  //Store the track vtx information in temporary container	  
 	  double xyz_d[3] = {0.,0.,0.};
 	  for(auto const & v_d : v_ds) {
 	    v_d->XYZ(xyz_d);
 	  }
+
+	  //Calculate the distance between the neutrino and track vertices
 	  float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2));
 
-	  if(dist<fTrackVertexProximityCut) { // Muon vertex is close to neutrino vertex
+	  // Passes the track-Nu proximity threshold
+	  if(dist<fTrackVertexProximityCut) { 
 
 	    // Loop over proximate tracks to find longest track
 	    auto const & trk_ds = PfpTrk.at(PfpVector.at(idx).Self());
+	    // Make sure you actually grabbed a track
 	    if(trk_ds.size() == 0) {
+	      std::cout << "Failed to find the longest track!?" << std::endl;
 	      continue;
 	    } else if (trk_ds.size() > 1) {
-	      std::cout << "I Hate My Life! 33333333: " << trk_ds.size() << std::endl;
+	      // Check that you only grabbed one track
+	      std::cout << "Grabbed " << trk_ds.size() << " Tracks instead of the longest trakc?!" << std::endl;
 	    }
+
+	    //Study the selectred track in detail
 	    for(auto const & trk_d : trk_ds) {
+
+	      //measure the end-to-end track length
 	      float trkl = (trk_d->Vertex()-trk_d->End()).Mag();
-	      if(trkl<fMuonTrackLengthCut)
-		continue;
+
+	      //drop the track if it isn't long enough
+	      if(trkl<fMuonTrackLengthCut){continue;}
+
+	      //JOSEPH STOPPED COMMENTING HERE!!!!
 	      if(nuMuonMaxTrackLength.find(idx) == nuMuonMaxTrackLength.end()) {
 		nuMuonMaxTrackLength[idx] = trkl;
 		nuMuonMaxTrackLengthIndex[idx] = PfpVector.at(idx).Self();
@@ -300,8 +324,10 @@ bool PiZeroFilter::filter(art::Event & e)
     for(int i = 0; i<3; ++i) {
       Vertex[i] = std::make_pair(nuMuonStartTick[cand.first][i],nuMuonStartWire[cand.first][i]);
       // Need to define the upper limits on tick and wire number correctly
-      TimePairs[i] = std::make_pair(std::max(0.,-20.+startt[cand.first][i]),std::min(9600.0,20.0+endt[cand.first][i]));
-      WirePairs[i] = std::make_pair(std::max(0.,-20.+startw[cand.first][i]),std::min(8256.0,20.0+endw[cand.first][i]));
+      TimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+startt[cand.first][i]),
+				    std::min(9600.0,double(fPadding)+endt[cand.first][i]));
+      WirePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+startw[cand.first][i]),
+				    std::min(8256.0,double(fPadding)+endw[cand.first][i]));
     }
 
     ana::PiZeroROI pizeroroi;
@@ -338,6 +364,7 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
   fShowerDetached2dProximityCut = p.get<float>("ShowerDetached2dProximityCut");
   fMinMinDetachedShowersPerPlaneCut = p.get<int>("MinMinDetachedShowersPerPlaneCut");
   fMinMaxDetachedShowersPerPlaneCut = p.get<int>("MinMaxDetachedShowersPerPlaneCut");
+  fPadding = p.get<float>("Padding");
 }
 
 DEFINE_ART_MODULE(PiZeroFilter)

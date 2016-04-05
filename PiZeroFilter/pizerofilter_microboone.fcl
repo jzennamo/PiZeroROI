@@ -20,6 +20,7 @@ microboone_pizerofilter:
     ShowerDetached2dProximityCut: 10.
     MinMinDetachedShowersPerPlaneCut: 1
     MinMaxDetachedShowersPerPlaneCut: 2
+    Padding: 30
 }
 
 END_PROLOG
