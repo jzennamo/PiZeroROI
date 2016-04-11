@@ -160,7 +160,7 @@ bool PiZeroFilter::filter(art::Event & e)
 	int trk = 0; int show = 0;
 	if(PfpVector.at(idx).PdgCode() == 13) trk++;
 	if(PfpVector.at(idx).PdgCode() == 11) show++;
-	if(trk >= 1 && show >= 2) numuCC = true;
+	if(trk >= 1 && show >= 1) numuCC = true;
       }
       //If Pandora does not find 1 track and two showers skip it 
       if(numuCC == false) continue;
@@ -203,7 +203,7 @@ bool PiZeroFilter::filter(art::Event & e)
 	      continue;
 	    } else if (trk_ds.size() > 1) {
 	      // Check that you only grabbed one track
-	      std::cout << "Grabbed " << trk_ds.size() << " Tracks instead of the longest trakc?!" << std::endl;
+	      std::cout << "Grabbed " << trk_ds.size() << " Tracks instead of the longest track?!" << std::endl;
 	    }
 
 	    //Study the selected track in detail
@@ -218,8 +218,10 @@ bool PiZeroFilter::filter(art::Event & e)
 	      // Hold onto the longest track 
 	      // Search through a vector and determine if it has been counted
 	      // If it the longest track then push it into the muon max length vector
-	      // This is a bug...
-	      if(nuMuonMaxTrackLength.find(idx) == nuMuonMaxTrackLength.end()) {
+	      //	      if(nuMuonMaxTrackLength.find(idx) == nuMuonMaxTrackLength.end()) {
+	      if(std::find(nuMuonMaxTrackLengthIndex.begin(), 
+			   nuMuonMaxTrackLengthIndex.end(), 
+			   idx) == nuMuonMaxTrackLengthIndex.end() ){
 		nuMuonMaxTrackLength[idx] = trkl;
 		nuMuonMaxTrackLengthIndex[idx] = PfpVector.at(idx).Self();
 	      } else if (trkl > nuMuonMaxTrackLength[idx]) {
@@ -248,6 +250,26 @@ bool PiZeroFilter::filter(art::Event & e)
 	
 	// I would add the ROI building around the showers here
 	// Just ask for ALL the shower daughters of the PFParticle and build out the ROI 
+	// Want to find a shower
+	if(PfpVector.at(idx).PdgCode() == 11) { // Shower-like object
+
+	  // Loop over tracks clusters to build potential ROIs
+	  auto const & cls_ds = PfpCls.at(PfpVector.at(idx).Self());
+	  for(auto const & cls_d : cls_ds) {
+	    auto c_idx = cls_d->Plane().Plane;
+	    if(startw.find(idx) == startw.end()) {
+	      startw[idx] = std::vector<float>{8256.,8256.,8256.};
+	      startt[idx] = std::vector<float>{9600.,9600.,9600.};
+	      endw[idx] = std::vector<float>{0.,0.,0.};
+	      endt[idx] = std::vector<float>{0.,0.,0.};
+	    }
+	    startw[idx][c_idx] = std::min(startw[idx][c_idx],std::min(cls_d->StartWire(),cls_d->EndWire()));
+	    endw[idx][c_idx] = std::max(endw[idx][c_idx],std::max(cls_d->StartWire(),cls_d->EndWire()));
+	    startt[idx][c_idx] = std::min(startt[idx][c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
+	    endt[idx][c_idx] = std::max(endt[idx][c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
+	  }//Done building the ROI around the Showers
+	  	  
+	}//Done checking showers
 	// 
 
       }//Done iterating through the PFParticle Daughters
@@ -330,10 +352,13 @@ bool PiZeroFilter::filter(art::Event & e)
     if(startw.find(cand.first)==startw.end() || startt.find(cand.first)==startt.end() || endw.find(cand.first)==endw.end() || endt.find(cand.first)==endt.end())
       continue;
 
+    /*
+      //Chopped this for now...
+
     // If candidate does not satisfy shower cuts it does not pass
-    int MinDetachedShowersPerPlane = 0;
-    int MaxDetachedShowersPerPlane = 0;
-    if(nDetachedShowers.find(cand.first) != nDetachedShowers.end()) {
+        int MinDetachedShowersPerPlane = 0;
+        int MaxDetachedShowersPerPlane = 0;
+        if(nDetachedShowers.find(cand.first) != nDetachedShowers.end()) {
       MinDetachedShowersPerPlane = std::min(nDetachedShowers[cand.first][0],std::min(nDetachedShowers[cand.first][1],nDetachedShowers[cand.first][2]));
       MaxDetachedShowersPerPlane = std::max(nDetachedShowers[cand.first][0],std::max(nDetachedShowers[cand.first][1],nDetachedShowers[cand.first][2]));
     }
@@ -341,6 +366,8 @@ bool PiZeroFilter::filter(art::Event & e)
       continue;
 
     pass = true;
+    */
+
 
     for(int i = 0; i<3; ++i) {
       Vertex[i] = std::make_pair(nuMuonStartTick[cand.first][i],nuMuonStartWire[cand.first][i]);
