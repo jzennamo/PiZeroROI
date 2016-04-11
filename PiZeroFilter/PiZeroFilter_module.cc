@@ -153,6 +153,19 @@ bool PiZeroFilter::filter(art::Event & e)
 	v_p->XYZ(xyz_p);
       }
 
+      //Check that there are at least 1 track and two showers
+      //Should make this a flag
+      bool numuCC = false;
+      for(auto const idx : Pfp.Daughters()) {
+	int trk = 0; int show = 0;
+	if(PfpVector.at(idx).PdgCode() == 13) trk++;
+	if(PfpVector.at(idx).PdgCode() == 11) show++;
+	if(trk >= 1 && show >= 2) numuCC = true;
+      }
+      //If Pandora does not find 1 track and two showers skip it 
+      if(numuCC == false) continue;
+      //End "Should make this a flag"
+
       // Iteration through all PFParticle daughters 
       for(auto const idx : Pfp.Daughters()) {
 
@@ -193,7 +206,7 @@ bool PiZeroFilter::filter(art::Event & e)
 	      std::cout << "Grabbed " << trk_ds.size() << " Tracks instead of the longest trakc?!" << std::endl;
 	    }
 
-	    //Study the selectred track in detail
+	    //Study the selected track in detail
 	    for(auto const & trk_d : trk_ds) {
 
 	      //measure the end-to-end track length
@@ -202,17 +215,20 @@ bool PiZeroFilter::filter(art::Event & e)
 	      //drop the track if it isn't long enough
 	      if(trkl<fMuonTrackLengthCut){continue;}
 
-	      //JOSEPH STOPPED COMMENTING HERE!!!!
+	      // Hold onto the longest track 
+	      // Search through a vector and determine if it has been counted
+	      // If it the longest track then push it into the muon max length vector
+	      // This is a bug...
 	      if(nuMuonMaxTrackLength.find(idx) == nuMuonMaxTrackLength.end()) {
 		nuMuonMaxTrackLength[idx] = trkl;
 		nuMuonMaxTrackLengthIndex[idx] = PfpVector.at(idx).Self();
 	      } else if (trkl > nuMuonMaxTrackLength[idx]) {
 		nuMuonMaxTrackLength[idx] = trkl;
 		nuMuonMaxTrackLengthIndex[idx] = PfpVector.at(idx).Self();		
-	      }
-	    }
-
-	    // Loop over proximate tracks clusters to build potential ROIs
+	      }//End search through vector 
+	    }//End Iteration through tracks
+	  
+	    // Loop over tracks clusters to build potential ROIs
 	    auto const & cls_ds = PfpCls.at(PfpVector.at(idx).Self());
 	    for(auto const & cls_d : cls_ds) {
 	      auto c_idx = cls_d->Plane().Plane;
@@ -226,15 +242,22 @@ bool PiZeroFilter::filter(art::Event & e)
 	      endw[idx][c_idx] = std::max(endw[idx][c_idx],std::max(cls_d->StartWire(),cls_d->EndWire()));
 	      startt[idx][c_idx] = std::min(startt[idx][c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
 	      endt[idx][c_idx] = std::max(endt[idx][c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
-	    }
-	  }
-	}
-      }
-    }
-  }
-  // If there is no neutrino with a muon satisfying proximity and length cuts then the event does not pass
-  //if(nuMuonMaxTrackLengthIndex.size() == 0)
-  //  return false;
+	    }//Done building the ROI around the track
+	  }//End cut on the length of the track
+	}//End check on muon
+	
+	// I would add the ROI building around the showers here
+	// Just ask for ALL the shower daughters of the PFParticle and build out the ROI 
+	// 
+
+      }//Done iterating through the PFParticle Daughters
+    }//Done checking that the PFParticle is neutrino
+  }//Done Iterating through all the PFParticles
+
+  // I think this step we can add if the PFParticle building is deficient 
+
+  /*
+  // This is where we search for showers outside of the PFParticle structure and add them in
 
   // Loop over longest mouns and save cluster start point
   for(auto const & i : nuMuonMaxTrackLengthIndex) {
@@ -247,11 +270,6 @@ bool PiZeroFilter::filter(art::Event & e)
       nuMuonStartTick[i.first][c_idx] = cls_d->StartTick();
     }
   }    
-
-  // Loop over shower-like daughters of candidate vertices --> Loop over what nuMuonMaxTrackLengthIndex.first and then ask for PfpVector[ifirst].Daughters()
-  //for(auto const Pfp : PfpVector) {
-
-  //if(Pfp.IsPrimary() && (Pfp.PdgCode()==12 || Pfp.PdgCode()==14 || Pfp.PdgCode()==-12 || Pfp.PdgCode()==-14)) { // Nu
 
   // Loop over shower-like daughters of candidate vertices
   for(auto const n : nuMuonMaxTrackLengthIndex) {
@@ -301,7 +319,10 @@ bool PiZeroFilter::filter(art::Event & e)
       } // if daughter is shower-like
     } // loop over track candidate daughters
   } // loop over track candidates
-  
+
+
+  */  // Sorry Matt
+
   // Loop over ROIs
   for(auto const & cand : nuMuonMaxTrackLengthIndex) {
 
