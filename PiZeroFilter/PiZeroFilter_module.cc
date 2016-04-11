@@ -179,7 +179,10 @@ bool PiZeroFilter::filter(art::Event & e)
 	      float trkl = (trk_d->Vertex()-trk_d->End()).Mag();
 	      if(trkl<fMuonTrackLengthCut)
 		continue;
-	      if(nuMuonMaxTrackLength.find(idx) == nuMuonMaxTrackLength.end()) {
+	      //	      if(nuMuonMaxTrackLength.find(idx) == nuMuonMaxTrackLength.end()) {
+              if(std::find(nuMuonMaxTrackLengthIndex.begin(),
+                           nuMuonMaxTrackLengthIndex.end(),
+                           idx) == nuMuonMaxTrackLengthIndex.end() ){
 		nuMuonMaxTrackLength[idx] = trkl;
 		nuMuonMaxTrackLengthIndex[idx] = PfpVector.at(idx).Self();
 	      } else if (trkl > nuMuonMaxTrackLength[idx]) {
