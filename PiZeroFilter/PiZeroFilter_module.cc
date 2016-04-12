@@ -72,6 +72,7 @@ private:
   TTree* fallEventTree;
   int fnVtx;
   int fnShw;
+  int fnTrk;
   int fnNuMuCC;
 
   TTree* fselectedEventTree;
@@ -81,7 +82,7 @@ private:
 PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   : fnVtx(0),
     fnShw(0),
-    fnTrk(0);
+    fnTrk(0),
     fnNuMuCC(0)
 // Initialize member data here.
 {
@@ -170,7 +171,6 @@ bool PiZeroFilter::filter(art::Event & e)
       //Check that there are at least 1 track and two showers
       //Should make this a flag
       int nmcc = 0;
-      bool numuCC = false;
       int trk = 0; int show = 0;
       for(auto const idx : Pfp.Daughters()) {
 	if(PfpVector.at(idx).PdgCode() == 13) trk++;
@@ -181,13 +181,7 @@ bool PiZeroFilter::filter(art::Event & e)
       }
       fnShw = show;
       fnTrk = trk;
-      fnNuMuCC = nmcc
-	  numuCC = true;
-	}
-      }
-      fnShw = show;
-      if(numuCC == true){
-	fnNuMuCC = 1;}
+      fnNuMuCC = nmcc;
       fallEventTree->Fill();
 
       //If Pandora does not find 1 track and two showers skip it 
