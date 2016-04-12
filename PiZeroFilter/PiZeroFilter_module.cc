@@ -28,6 +28,8 @@
 #include "RecoBase/Track.h"
 #include "RecoBase/Cluster.h"
 
+#include "MCBase/MCShower.h"
+
 class PiZeroFilter;
 
 class PiZeroFilter : public art::EDFilter {
@@ -75,13 +77,16 @@ private:
   int fnNuMuCC;
 
   TTree* fselectedEventTree;
+  double fdeltaVtx;
+
 };
 
 
 PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   : fnVtx(0),
     fnShw(0),
-    fnNuMuCC(0)
+    fnNuMuCC(0),
+    fdeltaVtx(0.0)
 // Initialize member data here.
 {
   this->reconfigure(p);
@@ -93,6 +98,7 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   fallEventTree->Branch("fnNuMuCC",&fnNuMuCC,"fnNuMuCC/I");
 
   fselectedEventTree = tfs->make<TTree>("selectedEvents","selectedEvents");
+  fselectedEventTree->Branch("fdeltaVtx",&fdeltaVtx,"fdeltaVtx/D");
 
   // Call appropriate produces<>() functions here.
   produces<std::vector<ana::PiZeroROI> >();
@@ -111,10 +117,11 @@ bool PiZeroFilter::filter(art::Event & e)
   art::ValidHandle<std::vector<recob::Vertex> > Vtx_h = e.getValidHandle<std::vector<recob::Vertex> >(fVertexModuleLabel);
   art::ValidHandle<std::vector<recob::Cluster> > Cls_h = e.getValidHandle<std::vector<recob::Cluster> >(fClusterModuleLabel);
   art::ValidHandle<std::vector<recob::Track> > Trk_h = e.getValidHandle<std::vector<recob::Track> >(fTrackModuleLabel);
-
+  art::ValidHandle<std::vector< ::sim::MCShower > > MCS_h = e.getValidHandle<std::vector< ::sim::MCShower > >("mcreco");
+  
   if(!(Pfp_h.isValid() && Vtx_h.isValid() && Cls_h.isValid() && Trk_h.isValid())) 
     throw std::exception();
-
+  
   const art::FindManyP<recob::Vertex> PfpVtx(Pfp_h, e, fPFPVertexAssnModuleLabel);
   const art::FindManyP<recob::Cluster> PfpCls(Pfp_h, e, fPFPClusterAssnModuleLabel);
   const art::FindManyP<recob::Track> PfpTrk(Pfp_h, e, fPFPTrackAssnModuleLabel);
@@ -123,15 +130,18 @@ bool PiZeroFilter::filter(art::Event & e)
   std::vector<recob::Vertex> const& VtxVector(*Vtx_h);
   std::vector<recob::Cluster> const& ClsVector(*Cls_h);
   std::vector<recob::Track> const& TrkVector(*Trk_h);
-
+  std::vector< ::sim::MCShower > const& MCSVector(*MCS_h);
+  
   std::cout << "PFPVector size: " << PfpVector.size() << std::endl;
   std::cout << "VtxVector size: " << VtxVector.size() << std::endl;
   std::cout << "ClsVector size: " << ClsVector.size() << std::endl;
   std::cout << "TrkVector size: " << TrkVector.size() << std::endl;
+  std::cout << "MCSVector size: " << MCSVector.size() << std::endl;
   
   std::cout << "Hello!" << std::endl;
 
   std::vector< int > roi_cand_v;  
+  std::vector< double > trk_lengths; 
 
   std::vector<ana::PiZeroROI> pizeroroi_v;
   std::vector<std::pair<int,int> > Vertex(3);
@@ -231,11 +241,10 @@ bool PiZeroFilter::filter(art::Event & e)
 	      //measure the end-to-end track length
 	      float trkl = (trk_d->Vertex()-trk_d->End()).Mag();
 
+	      trk_lengths.push_back(trkl);
+
 	      //drop the track if it isn't long enough
 	      if(trkl<fMuonTrackLengthCut){continue;}
-
-	      //Store Event 
-	      roi_cand_v.push_back(Pfp.Self());      
 
 	      // Hold onto the longest track 
 	      // Search through a vector and determine if it has been counted
@@ -309,7 +318,30 @@ bool PiZeroFilter::filter(art::Event & e)
 	// 
 
       }//Done iterating through the PFParticle Daughters
-    }//Done checking that the PFParticle is neutrino
+      
+      std::sort ( trk_lengths.begin(),trk_lengths.end() ); 
+      
+      //Check a long track exists and that the ROI is set 
+      if( nuMuonMaxTrackLength[Pfp.Self()] > fMuonTrackLengthCut && 
+	  startw.find(Pfp.Self()) != startw.end()){
+	
+	if(trk_lengths[trk_lengths.size()-1] != nuMuonMaxTrackLength[Pfp.Self()]){std::cout << " :::::::: WAHAT?! :::::::::: " << std::endl;} 
+
+	roi_cand_v.push_back(Pfp.Self());      
+	
+	double xyz_PF[3] = {0.,0.,0.};
+	double xyz_Trk[3] = {0.,0.,0.};
+	for(auto const & PF_vtx : PfpVtx.at(Pfp.Self())){
+	  PF_vtx->XYZ(xyz_PF);}
+	for( auto const & trk_vtx : PfpVtx.at(nuMuonMaxTrackLengthIndex[Pfp.Self()])){
+	  trk_vtx->XYZ(xyz_Trk);}
+	fdeltaVtx = std::sqrt(std::pow(xyz_Trk[0] - xyz_PF[0],2) + 
+			      std::pow(xyz_Trk[1] - xyz_PF[1],2) + 
+			      std::pow(xyz_Trk[2] - xyz_PF[2],2));
+	std::cout << " \n \n \t \t \t ::::::: Vtx Dist : " << fdeltaVtx << " ::::::::: \n \n" << std::endl; 
+	fselectedEventTree->Fill();
+      }
+    }//Done checking that the PFParticle is neutrino        
   }//Done Iterating through all the PFParticles
 
   std::cout << "Done Building ROIs! Now to get them ready for prime time" << std::endl; 
@@ -338,7 +370,8 @@ bool PiZeroFilter::filter(art::Event & e)
     // If no ROI was built, does not pass even if there is a vertex candidate
     if(startw.find(cand)==startw.end() || startt.find(cand)==startt.end() || endw.find(cand)==endw.end() || endt.find(cand)==endt.end()){
       continue;}
-    else{pass = true;}
+    else{
+      pass = true;}
 
     for(int i = 0; i<3; ++i) {
       Vertex[i] = std::make_pair(nuMuonStartTick[cand][i],nuMuonStartWire[cand][i]);
