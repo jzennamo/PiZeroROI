@@ -73,6 +73,11 @@ private:
   int fnShw;
   int fnNuMuCC;
   int fnTrk;
+
+  TTree* fpasstree;
+  int fnpassVtx;
+  int fnpassShw;
+  int fn 
 };
 
 
