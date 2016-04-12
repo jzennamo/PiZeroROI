@@ -6,6 +6,7 @@
 // Generated at Tue Mar  1 14:26:33 2016 by Matthew Toups using artmod
 // from cetpkgsupport v1_10_01.
 ////////////////////////////////////////////////////////////////////////
+
 #include "art/Framework/Core/EDFilter.h"
 #include "art/Framework/Core/ModuleMacros.h"
 #include "art/Framework/Core/FindManyP.h"
@@ -68,34 +69,32 @@ private:
   float fMinMaxDetachedShowersPerPlaneCut;
   float fPadding;
 
-  TTree* fmytree;
+  TTree* fallEventTree;
   int fnVtx;
   int fnShw;
   int fnNuMuCC;
-  int fnTrk;
 
-  TTree* fpasstree;
-  int fnpassVtx;
-  int fnpassShw;
-  int fn 
+  TTree* fselectedEventTree;
 };
 
 
 PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   : fnVtx(0),
     fnShw(0),
-    fnNuMuCC(0),
-    fnTrk(0)
+    fnTrk(0);
+    fnNuMuCC(0)
 // Initialize member data here.
 {
   this->reconfigure(p);
   art::ServiceHandle<art::TFileService> tfs;
 
-  fmytree = tfs->make<TTree>("mytree","mytree");
-  fmytree->Branch("fnVtx",&fnVtx,"fnVtx/I");
-  fmytree->Branch("fnShw",&fnShw,"fnShw/I");
-  fmytree->Branch("fnTrk",&fnTrk,"fnTrk/I");
-  fmytree->Branch("fnNuMuCC",&fnNuMuCC,"fnNuMuCC/I");
+  fallEventTree = tfs->make<TTree>("allEvents","allEvents");
+  fallEventTree->Branch("fnVtx",&fnVtx,"fnVtx/I");
+  fallEventTree->Branch("fnShw",&fnShw,"fnShw/I");
+  fallEventTree->Branch("fnTrk",&fnTrk,"fnTrk/I");
+  fallEventTree->Branch("fnNuMuCC",&fnNuMuCC,"fnNuMuCC/I");
+
+  fselectedEventTree = tfs->make<TTree>("selectedEvents","selectedEvents");
 
   // Call appropriate produces<>() functions here.
   produces<std::vector<ana::PiZeroROI> >();
@@ -156,7 +155,6 @@ bool PiZeroFilter::filter(art::Event & e)
     // Select only if Primary PFParticle is a neutrino
     if(Pfp.IsPrimary() && (Pfp.PdgCode()==12 || Pfp.PdgCode()==14 || Pfp.PdgCode()==-12 || Pfp.PdgCode()==-14)) { // Nu
 
-      std::cout << "PFParticle Primary Neutrino with Pfp.PdgCode() " << Pfp.PdgCode() << std::endl;
       // Get neutrino vertex info
       auto const & v_ps = PfpVtx.at(Pfp.Self());
       // Save PFparticle vtx in v_ps should be size 1 because 
@@ -167,12 +165,11 @@ bool PiZeroFilter::filter(art::Event & e)
       double xyz_p[3] = {0.,0.,0.};
       for(auto const & v_p : v_ps) {
 	v_p->XYZ(xyz_p);
-	std::cout << "xyz_p [" << xyz_p[0]<< ", " << xyz_p[1] << ", " << xyz_p[2] << "]" << std::endl;
       }
 
       //Check that there are at least 1 track and two showers
       //Should make this a flag
-      int nmcc = 0; //use that instead of boolean
+      int nmcc = 0;
       int trk = 0; int show = 0;
       for(auto const idx : Pfp.Daughters()) {
 	if(PfpVector.at(idx).PdgCode() == 13) trk++;
@@ -183,18 +180,13 @@ bool PiZeroFilter::filter(art::Event & e)
       }
       fnShw = show;
       fnTrk = trk;
-      fnNuMuCC = nmcc;
-      fmytree->Fill();
-	
+      fnNuMuCC = nmcc
+      fallEventTree->Fill();
+
       //If Pandora does not find 1 track and two showers skip it 
-      if(nmcc != 1){
-	std::cout << "Event skipped - not 1 track and 2 showers" << std::endl; 
-	continue;
-	};
+      if(nmcc != 1) continue;
       //End "Should make this a flag"
 
-      if(nmcc == 1){std::cout << "There are  "<<trk << " tracks and " << show << " showers present." << std::endl;};
-      
       // Iteration through all PFParticle daughters 
       for(auto const idx : Pfp.Daughters()) {
 
@@ -216,7 +208,6 @@ bool PiZeroFilter::filter(art::Event & e)
 	  double xyz_d[3] = {0.,0.,0.};
 	  for(auto const & v_d : v_ds) {
 	    v_d->XYZ(xyz_d);
-	    std::cout << "Track vertex at [" << xyz_d[0] << ", " << xyz_d[1] << ", " << xyz_d[2] << "]" << std::endl;
 	  }
 
 	  //Calculate the distance between the neutrino and track vertices
@@ -397,18 +388,6 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
 }
 
 DEFINE_ART_MODULE(PiZeroFilter)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
