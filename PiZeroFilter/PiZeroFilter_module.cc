@@ -69,10 +69,12 @@ private:
   float fMinMaxDetachedShowersPerPlaneCut;
   float fPadding;
 
-  TTree* fmytree;
+  TTree* fallEventTree;
   int fnVtx;
   int fnShw;
   int fnNuMuCC;
+
+  TTree* fselectedEventTree;
 };
 
 
@@ -85,10 +87,12 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   this->reconfigure(p);
   art::ServiceHandle<art::TFileService> tfs;
 
-  fmytree = tfs->make<TTree>("mytree","mytree");
-  fmytree->Branch("fnVtx",&fnVtx,"fnVtx/I");
-  fmytree->Branch("fnShw",&fnShw,"fnShw/I");
-  fmytree->Branch("fnNuMuCC",&fnNuMuCC,"fnNuMuCC/I");
+  fallEventTree = tfs->make<TTree>("allEvents","allEvents");
+  fallEventTree->Branch("fnVtx",&fnVtx,"fnVtx/I");
+  fallEventTree->Branch("fnShw",&fnShw,"fnShw/I");
+  fallEventTree->Branch("fnNuMuCC",&fnNuMuCC,"fnNuMuCC/I");
+
+  fselectedEventTree = tfs->make<TTree>("selectedEvents","selectedEvents");
 
   // Call appropriate produces<>() functions here.
   produces<std::vector<ana::PiZeroROI> >();
@@ -175,7 +179,7 @@ bool PiZeroFilter::filter(art::Event & e)
       fnShw = show;
       if(numuCC == true){
 	fnNuMuCC = 1;}
-      fmytree->Fill();
+      fallEventTree->Fill();
 
       //If Pandora does not find 1 track and two showers skip it 
       if(numuCC == false) continue;
