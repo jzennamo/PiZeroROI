@@ -170,6 +170,7 @@ bool PiZeroFilter::filter(art::Event & e)
       //Check that there are at least 1 track and two showers
       //Should make this a flag
       int nmcc = 0;
+      bool numuCC = false;
       int trk = 0; int show = 0;
       for(auto const idx : Pfp.Daughters()) {
 	if(PfpVector.at(idx).PdgCode() == 13) trk++;
@@ -181,6 +182,12 @@ bool PiZeroFilter::filter(art::Event & e)
       fnShw = show;
       fnTrk = trk;
       fnNuMuCC = nmcc
+	  numuCC = true;
+	}
+      }
+      fnShw = show;
+      if(numuCC == true){
+	fnNuMuCC = 1;}
       fallEventTree->Fill();
 
       //If Pandora does not find 1 track and two showers skip it 
