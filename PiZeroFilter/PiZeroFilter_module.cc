@@ -6,7 +6,7 @@
 // Generated at Tue Mar  1 14:26:33 2016 by Matthew Toups using artmod
 // from cetpkgsupport v1_10_01.
 ////////////////////////////////////////////////////////////////////////
-
+//change
 #include "art/Framework/Core/EDFilter.h"
 #include "art/Framework/Core/ModuleMacros.h"
 #include "art/Framework/Core/FindManyP.h"
@@ -74,6 +74,7 @@ private:
   TTree* fallEventTree;
   int fnVtx;
   int fnShw;
+  int fnTrk;
   int fnNuMuCC;
 
   TTree* fselectedEventTree;
@@ -87,6 +88,7 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
     fnShw(0),
     fnNuMuCC(0),
     fdeltaVtx(0.0)
+
 // Initialize member data here.
 {
   this->reconfigure(p);
@@ -95,6 +97,7 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   fallEventTree = tfs->make<TTree>("allEvents","allEvents");
   fallEventTree->Branch("fnVtx",&fnVtx,"fnVtx/I");
   fallEventTree->Branch("fnShw",&fnShw,"fnShw/I");
+  fallEventTree->Branch("fnTrk",&fnTrk,"fnTrk/I");
   fallEventTree->Branch("fnNuMuCC",&fnNuMuCC,"fnNuMuCC/I");
 
   fselectedEventTree = tfs->make<TTree>("selectedEvents","selectedEvents");
@@ -177,22 +180,22 @@ bool PiZeroFilter::filter(art::Event & e)
 
       //Check that there are at least 1 track and two showers
       //Should make this a flag
-      bool numuCC = false;
+      int nmcc = 0;
       int trk = 0; int show = 0;
       for(auto const idx : Pfp.Daughters()) {
 	if(PfpVector.at(idx).PdgCode() == 13) trk++;
 	if(PfpVector.at(idx).PdgCode() == 11) show++;
 	if(trk >= 1 && show >= 2) {
-	  numuCC = true;
+	  nmcc = 1;
 	}
       }
       fnShw = show;
-      if(numuCC == true){
-	fnNuMuCC = 1;}
+      fnTrk = trk;
+      fnNuMuCC = nmcc;
       fallEventTree->Fill();
 
       //If Pandora does not find 1 track and two showers skip it 
-      if(numuCC == false) continue;
+      if(nmcc != 1) continue;
       //End "Should make this a flag"
 
       // Iteration through all PFParticle daughters 
@@ -419,3 +422,12 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
 }
 
 DEFINE_ART_MODULE(PiZeroFilter)
+
+
+
+
+
+  
+
+
+
