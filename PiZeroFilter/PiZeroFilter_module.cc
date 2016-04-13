@@ -164,7 +164,9 @@ bool PiZeroFilter::filter(art::Event & e)
   std::vector<std::pair<int,int> > WirePairs(3);
 
   std::map<int,double> nuMuonMaxTrackLength;
+  std::map<int,double> nuMuon2ndMaxTrackLength;
   std::map<int,int> nuMuonMaxTrackLengthIndex;
+  std::map<int,int> nuMuon2ndMaxTrackLengthIndex;
   std::map<int,std::vector<float> > nuMuonStartWire;
   std::map<int,std::vector<float> > nuMuonStartTick;
   std::map<int,std::vector<float> > startw;
@@ -240,7 +242,7 @@ bool PiZeroFilter::filter(art::Event & e)
 
 	  // Passes the track-Nu proximity threshold
 	  if(dist<fTrackVertexProximityCut) { 
-
+	    
 	    // Loop over proximate tracks to find longest track
 	    auto const & trk_ds = PfpTrk.at(PfpVector.at(idx).Self());
 	    // Make sure you actually grabbed a track
@@ -271,17 +273,52 @@ bool PiZeroFilter::filter(art::Event & e)
 	      if(nuMuonMaxTrackLength.find(Pfp.Self()) == nuMuonMaxTrackLength.end() ){
 		nuMuonMaxTrackLength[Pfp.Self()] = trkl;
 		nuMuonMaxTrackLengthIndex[Pfp.Self()] = PfpVector.at(idx).Self();
+		std::cout<<"first trk theta is "<<trk_d->Theta()<<std::endl;
+		std::cout<<"first trk phi   is "<<trk_d->Phi()<<std::endl;
 	      } else if (trkl > nuMuonMaxTrackLength[Pfp.Self()]) {
 		nuMuonMaxTrackLength[Pfp.Self()] = trkl;
 		nuMuonMaxTrackLengthIndex[Pfp.Self()] = PfpVector.at(idx).Self();		
+		std::cout<<"first trk theta is "<<trk_d->Theta()<<std::endl;
+		std::cout<<"first trk phi   is "<<trk_d->Phi()<<std::endl;
 	      }//End search through vector 
 	    }//End Iteration through tracks
+	    
+	    //Loop searching 2nd longest track
+	    std::cout<<"2nd longest track shit here@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"<<std::endl;
+	    std::cout<<"the longest track length is "<<nuMuonMaxTrackLength[Pfp.Self()]<<std::endl;
+
+	    for(auto const & trk_d : trk_ds) {
+	      
+	      //measure the end-to-end track length
+	      float trkl = (trk_d->Vertex()-trk_d->End()).Mag();
+	      
+	      //drop the track if it isn't long enough
+	      //if(trkl<fMuonTrackLengthCut || trkl == nuMuonMaxTrackLength[Pfp.Self()]){continue;}
+	      if(trkl == nuMuonMaxTrackLength[Pfp.Self()]){continue;}
+
+	      std::cout<<"wowwwwwwwwwwwwwwwwwwwwwwwwww, found one 2nd track"<<std::endl;
+	      std::cout<<"second trk length is "<<trk<<std::endl;
+	      	      
+	      //find the 2nd Longest track
+	      if(nuMuon2ndMaxTrackLength.find(Pfp.Self()) == nuMuon2ndMaxTrackLength.end() ){
+		nuMuon2ndMaxTrackLength[Pfp.Self()] = trkl;
+		nuMuon2ndMaxTrackLengthIndex[Pfp.Self()] = PfpVector.at(idx).Self();
+		std::cout<<"second trk theta is "<<trk_d->Theta()<<std::endl;
+		std::cout<<"second trk phi   is "<<trk_d->Phi()<<std::endl;
+	      } else if (trkl > nuMuon2ndMaxTrackLength[Pfp.Self()]) {
+		nuMuon2ndMaxTrackLength[Pfp.Self()] = trkl;
+		nuMuon2ndMaxTrackLengthIndex[Pfp.Self()] = PfpVector.at(idx).Self();		
+		std::cout<<"second trk theta is "<<trk_d->Theta()<<std::endl;
+		std::cout<<"second trk phi   is "<<trk_d->Phi()<<std::endl;
+	      }//End search through vector 
+	    }//End Iteration through tracks
+	    
 	    std::cout<< "Nope!" << std::endl; 
 	    // Loop over tracks clusters to build potential ROIs
 	    auto const & cls_ds = PfpCls.at(PfpVector.at(idx).Self());
 	    std::cout<< "Got the clusters, sized " << cls_ds.size()  << std::endl; 
 	    int cluster_num = 0;
-
+	    
 	    if(startw.find(Pfp.Self()) == startw.end()) {
 	      startw[Pfp.Self()] = std::vector<float>{8256.,8256.,8256.};
 	      startt[Pfp.Self()] = std::vector<float>{9600.,9600.,9600.};
@@ -344,7 +381,8 @@ bool PiZeroFilter::filter(art::Event & e)
 
       //Check a long track exists and that the ROI is set 
       if( nuMuonMaxTrackLength[Pfp.Self()] > fMuonTrackLengthCut && 
-	  startw.find(Pfp.Self()) != startw.end()){
+	  startw.find(Pfp.Self()) != startw.end() && // simply remove events found a 2nd track
+	  nuMuon2ndMaxTrackLength.find(Pfp.Self()) == nuMuon2ndMaxTrackLength.end() ){
 	
 	roi_cand_v.push_back(Pfp.Self());      
 	
