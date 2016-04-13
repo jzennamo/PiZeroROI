@@ -28,7 +28,7 @@
 #include "RecoBase/Track.h"
 #include "RecoBase/Cluster.h"
 
-//#include "MCBase/MCShower.h"
+#include "MCBase/MCShower.h"
 
 class PiZeroFilter;
 
@@ -57,7 +57,7 @@ private:
   std::string fVertexModuleLabel;
   std::string fClusterModuleLabel;
   std::string fTrackModuleLabel;
-  //ShowerModuleLabel:          "showerrecopandora"
+ // ShowerModuleLabel:          "showerrecopandora"
 
   std::string fPFPVertexAssnModuleLabel;
   std::string fPFPClusterAssnModuleLabel;
@@ -83,6 +83,12 @@ private:
   double fdeltaVtx;
   int fnAllTrkSelected;
   int fnAllShowSelected;
+
+  TTree* fMCEventTree;
+  int fnTrkMC;
+  int fnShwMC;
+  int fnMCNuMuCC;
+  int fMCPdg;
 
 };
 
@@ -115,6 +121,12 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   fselectedEventTree->Branch("fnAllTrkSelected",&fnAllTrkSelected,"fnAllTrkSelected/I");
   fselectedEventTree->Branch("fnAllShowSelected",&fnAllShowSelected,"fnAllShowSelected/I");
 
+  fMCEventTree = tfs->make<TTree>("MCEvents","MCEvents");
+  fMCEventTree->Branch("fnTrkMC",&fnTrkMC,"fnTrkMC/I");
+  fMCEventTree->Branch("fnShwMC",&fnShwMC,"fnShwMC/I");
+  fMCEventTree->Branch("fnMCNuMuCC",&fnMCNuMuCC,"fnMCNuMuCC/I");
+  fMCEventTree->Branch("fMCPdg",&fMCPdg,"fMCPdg/I");
+
   // Call appropriate produces<>() functions here.
   produces<std::vector<ana::PiZeroROI> >();
 }
@@ -132,7 +144,7 @@ bool PiZeroFilter::filter(art::Event & e)
   art::ValidHandle<std::vector<recob::Vertex> > Vtx_h = e.getValidHandle<std::vector<recob::Vertex> >(fVertexModuleLabel);
   art::ValidHandle<std::vector<recob::Cluster> > Cls_h = e.getValidHandle<std::vector<recob::Cluster> >(fClusterModuleLabel);
   art::ValidHandle<std::vector<recob::Track> > Trk_h = e.getValidHandle<std::vector<recob::Track> >(fTrackModuleLabel);
-  //  art::ValidHandle<std::vector< ::sim::MCShower > > MCS_h = e.getValidHandle<std::vector< ::sim::MCShower > >("mcreco");
+  art::ValidHandle<std::vector< ::sim::MCShower > > MCS_h = e.getValidHandle<std::vector< ::sim::MCShower > >("mcreco");
   
   if(!(Pfp_h.isValid() && Vtx_h.isValid() && Cls_h.isValid() && Trk_h.isValid())) 
     throw std::exception();
@@ -145,13 +157,13 @@ bool PiZeroFilter::filter(art::Event & e)
   std::vector<recob::Vertex> const& VtxVector(*Vtx_h);
   std::vector<recob::Cluster> const& ClsVector(*Cls_h);
   std::vector<recob::Track> const& TrkVector(*Trk_h);
-  //  std::vector< ::sim::MCShower > const& MCSVector(*MCS_h);
+  std::vector< ::sim::MCShower > const& MCSVector(*MCS_h);
   
   std::cout << "PFPVector size: " << PfpVector.size() << std::endl;
   std::cout << "VtxVector size: " << VtxVector.size() << std::endl;
   std::cout << "ClsVector size: " << ClsVector.size() << std::endl;
   std::cout << "TrkVector size: " << TrkVector.size() << std::endl;
-  ///  std::cout << "MCSVector size: " << MCSVector.size() << std::endl;
+  std::cout << "MCSVector size: " << MCSVector.size() << std::endl;
   
   std::cout << "Hello!" << std::endl;
 
@@ -172,7 +184,25 @@ bool PiZeroFilter::filter(art::Event & e)
   std::map<int,std::vector<float> > endw;
   std::map<int,std::vector<float> > endt;
   std::map<int,std::vector<int> > nDetachedShowers;
-  // iterate through all the PFParticles 
+ 
+
+  //iterate through MCShowers
+  int no_photons = 0;
+  for (unsigned int i =0; i < MCSVector.size(); i++) {
+    if(MCSVector[i].PdgCode() == 22) {
+      no_photons++;
+      std::cout << "photon [TrackID "<<MCSVector[i].TrackID()<<"] from Ancestor with PDG " << MCSVector[i].AncestorPdgCode() << std::endl;
+      std::cout << "photon start point " << MCSVector[i].Start().X() << ", " << MCSVector[i].Start().Y() << ", " << MCSVector[i].Start().Z() << std::endl;
+      std::cout << "photon end point " << MCSVector[i].End().X() << ", " << MCSVector[i].End().Y() << ", " << MCSVector[i].End().Z() << std::endl;
+      std::cout << "ancestor end point " << MCSVector[i].AncestorEnd().X() << ", " << MCSVector[i].AncestorEnd().Y() << ", "<<MCSVector[i].AncestorEnd().Z() << "\n" << std::endl; 
+    }    
+  }
+
+  std::cout << " \n\n no_photons " << no_photons << "\n\n" << std::endl;
+  
+  fnShwMC = MCSVector.size();
+
+   // iterate through all the PFParticles 
   for(auto const Pfp : PfpVector) {
     
     // Select only if Primary PFParticle is a neutrino
