@@ -188,7 +188,7 @@ bool PiZeroFilter::filter(art::Event & e)
 
   //iterate through MCShowers
   int no_photons = 0;
-  for (unsigned int i =0; i < MCSVector.size(); i++) {
+  for (unsigned int i = 0; i < MCSVector.size(); i++) {
     if(MCSVector[i].PdgCode() == 22) {
       no_photons++;
       std::cout << "photon [TrackID "<<MCSVector[i].TrackID()<<"] from Ancestor with PDG " << MCSVector[i].AncestorPdgCode() << std::endl;

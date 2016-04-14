@@ -14,6 +14,7 @@ art_make(
 #			OpticalDetector
  #                     RawData
 			RecoBase
+			MCBase
 #			Simulation
 #			SimulationBase
                         ${ART_FRAMEWORK_CORE}
