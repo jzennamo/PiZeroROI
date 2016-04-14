@@ -154,19 +154,19 @@ bool PiZeroFilter::filter(art::Event & e)
   const art::FindManyP<recob::Track> PfpTrk(Pfp_h, e, fPFPTrackAssnModuleLabel);
   
   std::vector<recob::PFParticle> const& PfpVector(*Pfp_h);
-  std::vector<recob::Vertex> const& VtxVector(*Vtx_h);
-  std::vector<recob::Cluster> const& ClsVector(*Cls_h);
-  std::vector<recob::Track> const& TrkVector(*Trk_h);
+  //std::vector<recob::Vertex> const& VtxVector(*Vtx_h);
+  //std::vector<recob::Cluster> const& ClsVector(*Cls_h);
+  //std::vector<recob::Track> const& TrkVector(*Trk_h);
   std::vector< ::sim::MCShower > const& MCSVector(*MCS_h);
-  
+  /* 
   std::cout << "PFPVector size: " << PfpVector.size() << std::endl;
   std::cout << "VtxVector size: " << VtxVector.size() << std::endl;
   std::cout << "ClsVector size: " << ClsVector.size() << std::endl;
   std::cout << "TrkVector size: " << TrkVector.size() << std::endl;
   std::cout << "MCSVector size: " << MCSVector.size() << std::endl;
-  
+   
   std::cout << "Hello!" << std::endl;
-
+  */
   std::vector< int > roi_cand_v;  
   std::vector< double > trk_lengths; 
 
@@ -191,10 +191,10 @@ bool PiZeroFilter::filter(art::Event & e)
   for (unsigned int i = 0; i < MCSVector.size(); i++) {
     if(MCSVector[i].PdgCode() == 22) {
       no_photons++;
-      std::cout << "photon [TrackID "<<MCSVector[i].TrackID()<<"] from Ancestor with PDG " << MCSVector[i].AncestorPdgCode() << std::endl;
+      /*      std::cout << "photon [TrackID "<<MCSVector[i].TrackID()<<"] from Ancestor with PDG " << MCSVector[i].AncestorPdgCode() << std::endl;
       std::cout << "photon start point " << MCSVector[i].Start().X() << ", " << MCSVector[i].Start().Y() << ", " << MCSVector[i].Start().Z() << std::endl;
       std::cout << "photon end point " << MCSVector[i].End().X() << ", " << MCSVector[i].End().Y() << ", " << MCSVector[i].End().Z() << std::endl;
-      std::cout << "ancestor end point " << MCSVector[i].AncestorEnd().X() << ", " << MCSVector[i].AncestorEnd().Y() << ", "<<MCSVector[i].AncestorEnd().Z() << "\n" << std::endl; 
+      std::cout << "ancestor end point " << MCSVector[i].AncestorEnd().X() << ", " << MCSVector[i].AncestorEnd().Y() << ", "<<MCSVector[i].AncestorEnd().Z() << "\n" << std::endl; */
     }    
   }
 
@@ -240,6 +240,8 @@ bool PiZeroFilter::filter(art::Event & e)
       if(nmcc != 1) continue;
       //End "Should make this a flag"
 
+      int close_tracks = 0;
+      int PF_shower_daughters = 0;
       // Iteration through all PFParticle daughters 
       for(auto const idx : Pfp.Daughters()) {
 
@@ -271,6 +273,9 @@ bool PiZeroFilter::filter(art::Event & e)
 	  // Passes the track-Nu proximity threshold
 	  if(dist<fTrackVertexProximityCut) { 
 
+	    //Count the tracks 
+	    close_tracks++;
+
 	    // Loop over proximate tracks to find longest track
 	    auto const & trk_ds = PfpTrk.at(PfpVector.at(idx).Self());
 	    // Make sure you actually grabbed a track
@@ -297,7 +302,7 @@ bool PiZeroFilter::filter(art::Event & e)
 	      // Search through a vector and determine if it has been counted
 	      // If it the longest track then push it into the muon max length vector
 	      //	      if(nuMuonMaxTrackLength.find(idx) == nuMuonMaxTrackLength.end()) {
-	      std::cout<< "Is it me?" << std::endl; 
+	      //std::cout<< "Is it me?" << std::endl; 
 	      if(nuMuonMaxTrackLength.find(Pfp.Self()) == nuMuonMaxTrackLength.end() ){
 		nuMuonMaxTrackLength[Pfp.Self()] = trkl;
 		nuMuonMaxTrackLengthIndex[Pfp.Self()] = PfpVector.at(idx).Self();
@@ -306,10 +311,10 @@ bool PiZeroFilter::filter(art::Event & e)
 		nuMuonMaxTrackLengthIndex[Pfp.Self()] = PfpVector.at(idx).Self();		
 	      }//End search through vector 
 	    }//End Iteration through tracks
-	    std::cout<< "Nope!" << std::endl; 
+	    // std::cout<< "Nope!" << std::endl; 
 	    // Loop over tracks clusters to build potential ROIs
 	    auto const & cls_ds = PfpCls.at(PfpVector.at(idx).Self());
-	    std::cout<< "Got the clusters, sized " << cls_ds.size()  << std::endl; 
+	    //std::cout<< "Got the clusters, sized " << cls_ds.size()  << std::endl; 
 	    int cluster_num = 0;
 
 	    if(startw.find(Pfp.Self()) == startw.end()) {
@@ -317,22 +322,22 @@ bool PiZeroFilter::filter(art::Event & e)
 	      startt[Pfp.Self()] = std::vector<float>{9600.,9600.,9600.};
 	      endw[Pfp.Self()] = std::vector<float>{0.,0.,0.};
 	      endt[Pfp.Self()] = std::vector<float>{0.,0.,0.};
-	      std::cout << "Setup an ROI for the PFParticle" << std::endl; 
+	      //std::cout << "Setup an ROI for the PFParticle" << std::endl; 
 	    }
 	      
 	    for(auto const & cls_d : cls_ds) {
 	      cluster_num++;
-	      std::cout<< "Looking at cluster " << cluster_num << std::endl; 
+	      //std::cout<< "Looking at cluster " << cluster_num << std::endl; 
 	      auto c_idx = cls_d->Plane().Plane;
-	      std::cout<< "Looking at Plane " << c_idx << std::endl; 
+	      //std::cout<< "Looking at Plane " << c_idx << std::endl; 
 	      
 	      startw[Pfp.Self()][c_idx] = std::min(startw[Pfp.Self()][c_idx],std::min(cls_d->StartWire(),cls_d->EndWire()));
 	      endw[Pfp.Self()][c_idx] = std::max(endw[Pfp.Self()][c_idx],std::max(cls_d->StartWire(),cls_d->EndWire()));
 	      startt[Pfp.Self()][c_idx] = std::min(startt[Pfp.Self()][c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
 	      endt[Pfp.Self()][c_idx] = std::max(endt[Pfp.Self()][c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
-	      std::cout << "Setup an ROI for the Plane "<< c_idx << std::endl; 
+	      //std::cout << "Setup an ROI for the Plane "<< c_idx << std::endl; 
 	    }//Done building the ROI around the track
-	    std::cout<< "Noper!" << std::endl; 
+	    //std::cout<< "Noper!" << std::endl; 
 	  }//End cut on the length of the track
 	}//End check on muon
 	
@@ -340,6 +345,7 @@ bool PiZeroFilter::filter(art::Event & e)
 	// Just ask for ALL the shower daughters of the PFParticle and build out the ROI 
 	// Want to find a shower
 	if(PfpVector.at(idx).PdgCode() == 11) { // Shower-like object
+	  PF_shower_daughters++;
 	  fnAllShowSelected++;	  
 	  if(startw.find(Pfp.Self()) == startw.end()) {
 	    startw[Pfp.Self()] = std::vector<float>{8256.,8256.,8256.};
@@ -348,10 +354,10 @@ bool PiZeroFilter::filter(art::Event & e)
 	    endt[Pfp.Self()] = std::vector<float>{0.,0.,0.};
 	  }
 	  
-	  std::cout<< "Nopest 1!" << std::endl; 
+	  //std::cout<< "Nopest 1!" << std::endl; 
 	  // Loop over tracks clusters to build potential ROIs
 	  auto const & cls_ds = PfpCls.at(PfpVector.at(idx).Self());
-	  std::cout<< "Nopest 2!" << std::endl; 
+	  //std::cout<< "Nopest 2!" << std::endl; 
 	  for(auto const & cls_d : cls_ds) {
 	    auto c_idx = cls_d->Plane().Plane;
 	    
@@ -360,7 +366,7 @@ bool PiZeroFilter::filter(art::Event & e)
 	    startt[Pfp.Self()][c_idx] = std::min(startt[Pfp.Self()][c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
 	    endt[Pfp.Self()][c_idx] = std::max(endt[Pfp.Self()][c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
 	  }//Done building the ROI around the Showers
-	  std::cout<< "Nopest!" << std::endl; 
+	  //std::cout<< "Nopest!" << std::endl; 
 	}//Done checking showers
 	// 
 
@@ -370,7 +376,7 @@ bool PiZeroFilter::filter(art::Event & e)
 
       //////Place cuts here
 
-      //      if(fdeltaVtx > 1) continue;
+      if(PF_shower_daughters > 2 || close_tracks > 2) continue;
 
       //Check a long track exists and that the ROI is set 
       if( nuMuonMaxTrackLength[Pfp.Self()] > fMuonTrackLengthCut && 
@@ -396,7 +402,7 @@ bool PiZeroFilter::filter(art::Event & e)
     }//Done checking that the PFParticle is neutrino        
   }//Done Iterating through all the PFParticles
 
-  std::cout << "Done Building ROIs! Now to get them ready for prime time" << std::endl; 
+  //  std::cout << "Done Building ROIs! Now to get them ready for prime time" << std::endl; 
 
   // Loop over longest mouns and save cluster start point
   std::cout << "Gonna sift through my " << nuMuonMaxTrackLengthIndex.size() << " tracks from " 
@@ -408,7 +414,7 @@ bool PiZeroFilter::filter(art::Event & e)
     nuMuonStartWire[i.first] = std::vector<float>{0.,0.,0.};
     nuMuonStartTick[i.first] = std::vector<float>{0.,0.,0.};
     auto const & cls_ds = PfpCls.at(PfpVector.at(i.second).Self());
-    std::cout << "I Got myself " << cls_ds.size() << " clusters! for my " <<  check << " out of " << nuMuonMaxTrackLengthIndex.size() << std::endl;  
+    // std::cout << "I Got myself " << cls_ds.size() << " clusters! for my " <<  check << " out of " << nuMuonMaxTrackLengthIndex.size() << std::endl;  
     for(auto const & cls_d : cls_ds) {
       auto c_idx = cls_d->Plane().Plane;
       nuMuonStartWire[i.first][c_idx] = cls_d->StartWire();
@@ -441,7 +447,7 @@ bool PiZeroFilter::filter(art::Event & e)
   
   } // loop over candidates
 
-  std::cout << " Ending this shit " << std::endl; 
+  //std::cout << " Ending this shit " << std::endl; 
   e.put( std::move(pizeroroiVector) );
 
   return pass;
