@@ -183,6 +183,8 @@ bool PiZeroFilter::filter(art::Event & e)
   std::vector<std::pair<int,int> > Vertex(3);
   std::vector<std::pair<int,int> > TimePairs(3);
   std::vector<std::pair<int,int> > WirePairs(3);
+  std::vector<std::pair<int,int> > Pi0TimePairs(3);
+  std::vector<std::pair<int,int> > Pi0WirePairs(3);
 
   std::map<int,double> nuMuonMaxTrackLength;
   std::map<int,int> nuMuonMaxTrackLengthIndex;
@@ -192,6 +194,11 @@ bool PiZeroFilter::filter(art::Event & e)
   std::map<int,std::vector<float> > startt;
   std::map<int,std::vector<float> > endw;
   std::map<int,std::vector<float> > endt;
+  std::map<int,std::vector<float> > pi0startw;
+  std::map<int,std::vector<float> > pi0startt;
+  std::map<int,std::vector<float> > pi0endw;
+  std::map<int,std::vector<float> > pi0endt;
+
   std::map<int,std::vector<int> > nDetachedShowers;
  
 
@@ -361,6 +368,10 @@ bool PiZeroFilter::filter(art::Event & e)
 	    startt[Pfp.Self()] = std::vector<float>{9600.,9600.,9600.};
 	    endw[Pfp.Self()] = std::vector<float>{0.,0.,0.};
 	    endt[Pfp.Self()] = std::vector<float>{0.,0.,0.};
+	    pi0startw[Pfp.Self()] = std::vector<float>{8256.,8256.,8256.};
+	    pi0startt[Pfp.Self()] = std::vector<float>{9600.,9600.,9600.};
+	    pi0endw[Pfp.Self()] = std::vector<float>{0.,0.,0.};
+	    pi0endt[Pfp.Self()] = std::vector<float>{0.,0.,0.};
 	  }
 	  
 	  //std::cout<< "Nopest 1!" << std::endl; 
@@ -374,6 +385,11 @@ bool PiZeroFilter::filter(art::Event & e)
 	    endw[Pfp.Self()][c_idx] = std::max(endw[Pfp.Self()][c_idx],std::max(cls_d->StartWire(),cls_d->EndWire()));
 	    startt[Pfp.Self()][c_idx] = std::min(startt[Pfp.Self()][c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
 	    endt[Pfp.Self()][c_idx] = std::max(endt[Pfp.Self()][c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
+	    pi0startw[Pfp.Self()][c_idx] = std::min(startw[Pfp.Self()][c_idx],std::min(cls_d->StartWire(),cls_d->EndWire()));
+	    pi0endw[Pfp.Self()][c_idx] = std::max(endw[Pfp.Self()][c_idx],std::max(cls_d->StartWire(),cls_d->EndWire()));
+	    pi0startt[Pfp.Self()][c_idx] = std::min(startt[Pfp.Self()][c_idx],std::min(cls_d->StartTick(),cls_d->EndTick()));
+	    pi0endt[Pfp.Self()][c_idx] = std::max(endt[Pfp.Self()][c_idx],std::max(cls_d->StartTick(),cls_d->EndTick()));
+
 	  }//Done building the ROI around the Showers
 	  //std::cout<< "Nopest!" << std::endl; 
 	}//Done checking showers
@@ -452,13 +468,19 @@ bool PiZeroFilter::filter(art::Event & e)
 				    std::min(9600.0,double(fPadding)+endt[cand][i]));
       WirePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+startw[cand][i]),
 				    std::min(8256.0,double(fPadding)+endw[cand][i]));
+      Pi0TimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+pi0startt[cand][i]),
+				       std::min(9600.0,double(fPadding)+pi0endt[cand][i]));
+      Pi0WirePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+pi0startw[cand][i]),
+				       std::min(8256.0,double(fPadding)+pi0endw[cand][i]));
+      
     }
 
     ana::PiZeroROI pizeroroi;
     pizeroroi.SetVertex( Vertex );
     pizeroroi.SetROI( WirePairs, TimePairs );
+    pizeroroi.SetPiZeroROI( Pi0WirePairs, Pi0TimePairs );
     pizeroroiVector->emplace_back(pizeroroi);
-  
+    
   } // loop over candidates
 
   //std::cout << " Ending this shit " << std::endl; 
