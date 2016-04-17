@@ -10,9 +10,9 @@ art_make(
 #		        Utilities
 #	       	        TimeService_service
 #	                uboone_Geometry
-#                      OpticalDetectorData
+#                       OpticalDetectorData
 #			OpticalDetector
- #                     RawData
+#                       RawData
 			RecoBase
 			MCBase
 #			Simulation

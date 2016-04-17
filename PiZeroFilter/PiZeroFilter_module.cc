@@ -81,6 +81,9 @@ private:
   int fnTrkSelected;
   double fTrkLengths;
   double fdeltaVtx;
+  double fPFvtxX;
+  double fPFvtxY;
+  double fPFvtxZ;
   int fnAllTrkSelected;
   int fnAllShowSelected;
 
@@ -99,6 +102,9 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
     fnNuMuCC(0),
     fnTrkSelected(0),
     fdeltaVtx(0.0),
+    fPFvtxX(0.0),
+    fPFvtxY(0.0),
+    fPFvtxZ(0.0),
     fnAllTrkSelected(0),
     fnAllShowSelected(0)
 
@@ -116,6 +122,9 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
 
   fselectedEventTree = tfs->make<TTree>("selectedEvents","selectedEvents");
   fselectedEventTree->Branch("fdeltaVtx",&fdeltaVtx,"fdeltaVtx/D");
+  fselectedEventTree->Branch("fPFvtxX",&fPFvtxX,"fPFvtxX/D");
+  fselectedEventTree->Branch("fPFvtxY",&fPFvtxY,"fPFvtxY/D");
+  fselectedEventTree->Branch("fPFvtxZ",&fPFvtxZ,"fPFvtxZ/D");
   fselectedEventTree->Branch("fTrkLengths",&fTrkLengths,"fTrkLengths/D");
   fselectedEventTree->Branch("fnTrkSelected",&fnTrkSelected,"fnTrkSelected/I");
   fselectedEventTree->Branch("fnAllTrkSelected",&fnAllTrkSelected,"fnAllTrkSelected/I");
@@ -388,6 +397,11 @@ bool PiZeroFilter::filter(art::Event & e)
 	double xyz_Trk[3] = {0.,0.,0.};
 	for(auto const & PF_vtx : PfpVtx.at(Pfp.Self())){
 	  PF_vtx->XYZ(xyz_PF);}
+
+	fPFvtxX = xyz_PF[0];
+	fPFvtxX = xyz_PF[1];
+	fPFvtxX = xyz_PF[2];
+
 	for( auto const & trk_vtx : PfpVtx.at(nuMuonMaxTrackLengthIndex[Pfp.Self()])){
 	  trk_vtx->XYZ(xyz_Trk);}
 	fdeltaVtx = std::sqrt(std::pow(xyz_Trk[0] - xyz_PF[0],2) + 
