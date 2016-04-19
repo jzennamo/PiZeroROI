@@ -32,7 +32,7 @@ flcdir  product_dir     fcl
 # Add the dependent product and version
 
 product          version
-lardata		 v05_07_01
+lardata		 v05_07_02
 #gcc		v4_9_3
 cetbuildtools   v4_19_03       -       only_for_build
 end_product_list
