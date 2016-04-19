@@ -43,6 +43,7 @@ cet_report_compiler_flags()
 find_ups_product( larsoft v1_00_00 )
 find_ups_product( nutools v1_00_00 )
 find_ups_product( lardata v1_00_00 )
+find_ups_product( larpandora v1_00_00 )
 find_ups_product( art v1_08_00 )
 find_ups_product( cetbuildtools v3_07_00 )
 

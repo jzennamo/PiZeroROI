@@ -13,8 +13,9 @@ art_make(
 #                       OpticalDetectorData
 #			OpticalDetector
 #                       RawData
-			RecoBase
-			MCBase
+			lardata_RecoBase
+			lardata_MCBase
+			larpandora_LArPandoraInterface
 #			Simulation
 #			SimulationBase
                         ${ART_FRAMEWORK_CORE}
