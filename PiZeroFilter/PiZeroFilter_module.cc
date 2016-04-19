@@ -245,6 +245,8 @@ bool PiZeroFilter::filter(art::Event & e)
         }//particle is prinary and neutrino
     }//loop particle list
   
+  e.put( std::move(pizeroroiVector) );
+
   return pass;
 }//end filter 
 
