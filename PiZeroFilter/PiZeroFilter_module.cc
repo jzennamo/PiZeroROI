@@ -18,6 +18,8 @@
 #include "fhiclcpp/ParameterSet.h"
 #include "messagefacility/MessageLogger/MessageLogger.h"
 
+#include "lardata/Utilities/AssociationUtil.h"
+
 #include <memory>
 
 #include "art/Framework/Services/Optional/TFileService.h"
@@ -138,6 +140,7 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   
   // Call appropriate produces<>() functions here.
   produces<std::vector<ana::PiZeroROI> >();
+  produces<art::Assns<recob::PFParticle, ana::PiZeroROI> >();
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -164,7 +167,10 @@ bool PiZeroFilter::filter(art::Event & e)
   std::vector<std::pair<int,int> > Vertex(3);
   std::vector<std::pair<int,int> > TimePairs(3);
   std::vector<std::pair<int,int> > WirePairs(3);
-  
+
+  //Attempt at making an association between PFParticle and ROI
+  std::unique_ptr<art::Assns<recob::PFParticle, ana::PiZeroROI> > ROI_PFP_Assn(new art::Assns<recob::PFParticle, ana::PiZeroROI>); 
+    
   // * PFParticles
   //lorena - these vectors and maps will contain the associations between pfparticles and vertices, tracks, clusters, etc
   //these vectors and maps are filled up inside LArPandoraHelper, should have the right associations
@@ -236,8 +242,16 @@ bool PiZeroFilter::filter(art::Event & e)
 		      ana::PiZeroROI pizeroroi;
 		      pizeroroi.SetVertex( Vertex );
 		      pizeroroi.SetROI( WirePairs, TimePairs );
+		      		    
 		      pizeroroiVector->emplace_back(pizeroroi);
 		      
+
+		      if (!util::CreateAssn(*this, e, *pizeroroiVector, particle, *ROI_PFP_Assn))
+			{
+			  throw art::Exception(art::errors::InsertFailure)
+			    << "Can't associate";
+			}
+
 		      pass = true;
                     }//if there is one vertex
                 }//
@@ -246,6 +260,7 @@ bool PiZeroFilter::filter(art::Event & e)
     }//loop particle list
   
   e.put( std::move(pizeroroiVector) );
+  e.put( std::move(ROI_PFP_Assn) );
 
   return pass;
 }//end filter 
