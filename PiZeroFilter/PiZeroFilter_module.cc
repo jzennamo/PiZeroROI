@@ -193,7 +193,9 @@ bool PiZeroFilter::filter(art::Event & e)
   lar_pandora::LArPandoraHelper::CollectTracks(e, fPFPModuleLabel, allPfParticleTracks, pfParticleToTrackMap);//map PFParticles-to-tracks
   lar_pandora::LArPandoraHelper::CollectShowers(e, fPFPModuleLabel, allPfParticleShowers, pfParticleToShowerMap);//map PfParticles-to-showers
   //lorena - question, do we need more than one module label?	  
-  
+  //Joseph - answer - probably not. 
+
+
   //lorena - a check... 
   std::cout << "Number of PFParticles = "<< pfParticleList.size() << std::endl;
   
@@ -232,11 +234,19 @@ bool PiZeroFilter::filter(art::Event & e)
                       
 		      if (fnShw > 2 || n_close_tracks > 2)
 			continue;//lorena - why this cut?  
+		      //Joseph - answer - I found this increased the purity a lot
+		      // There was many very busy events being selected
+		      // This reduced it to only simple events
 		      
 		      if (!this->IsThereALongTrack(particle,pfParticleList, pfParticleToTrackMap))
 			continue;
 		      
 		      //Lorena: IMPORTANT! - This needs checks - ShowerDetachedProximityCut not used in latest version? 
+		      // Joseph - answer - I dropped the ShowerDetachedProximityCut cut 
+		      // because it didn't seem to be having a large impact on the events 
+		      // being selected, when running over cosmic events though there did
+		      // seem to be a sizable fraction of muon brems being selected, and
+		      // those were mostly overlapping the reco'ed muon.
 		      art::Ptr<recob::PFParticle> longestTrack = this->FindLongestTrack(particle,pfParticleList, pfParticleToTrackMap);
 		      if (!this->BuildROI(particle, pfParticleList, longestTrack, pfParticleToClusterMap, pfParticlesToVerticesMap,Vertex,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
 			continue;
@@ -466,6 +476,11 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
           double xyz_shower[3] = {0.,0.,0.};
           showerVertex->XYZ(xyz_shower);
           //IMPORTANT! detached clusters proximity cut, using vertices?
+	  //Joseph - answer - I don't think we only want to check vertices
+	  // if anything I think that we want to check that all parts of the cluster
+	  // are detachted from the track, maybe if we find some minimally bounding 
+	  // polygon we can check if the muon cluster intersects it, thoughts?
+
           float dist = std::sqrt(std::pow(xyz_track[0]-xyz_shower[0],2)+std::pow(xyz_track[1]-xyz_shower[1],2)+std::pow(xyz_track[2]-xyz_shower[2],2));//distance shower-track
           if(dist<fShowerDetached2dProximityCut){
             ++n_detached_showers;
@@ -490,6 +505,8 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
     }
   
   //IMPORTANT! number detached showers cut, disappeared?  
+  //Joseph - answer - yep, see above, I think if we want to do this 
+  // we need to come up with some clever checks
   if (n_detached_showers<fMinMinDetachedShowersPerPlaneCut)
     return false;
   
