@@ -99,7 +99,7 @@ private:
   int GetNCloseTracks(const art::Ptr<recob::PFParticle> particle, art::Ptr<recob::Vertex> nuVertex, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, lar_pandora::PFParticleVector pfParticleList) const;
   bool IsThereALongTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const;  
   art::Ptr<recob::PFParticle> FindLongestTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const;
-  bool BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs);
+  bool BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs);
     
 };
 
@@ -167,6 +167,9 @@ bool PiZeroFilter::filter(art::Event & e)
   std::vector<std::pair<int,int> > Vertex(3);
   std::vector<std::pair<int,int> > TimePairs(3);
   std::vector<std::pair<int,int> > WirePairs(3);
+  std::vector<std::pair<int,int> > PiZeroTimePairs(3);
+  std::vector<std::pair<int,int> > PiZeroWirePairs(3);
+
 
   //Attempt at making an association between PFParticle and ROI
   std::unique_ptr<art::Assns<recob::PFParticle, ana::PiZeroROI> > ROI_PFP_Assn(new art::Assns<recob::PFParticle, ana::PiZeroROI>); 
@@ -235,14 +238,14 @@ bool PiZeroFilter::filter(art::Event & e)
 		      
 		      //Lorena: IMPORTANT! - This needs checks - ShowerDetachedProximityCut not used in latest version? 
 		      art::Ptr<recob::PFParticle> longestTrack = this->FindLongestTrack(particle,pfParticleList, pfParticleToTrackMap);
-		      if (!this->BuildROI(particle, pfParticleList, longestTrack, pfParticleToClusterMap, pfParticlesToVerticesMap,Vertex,WirePairs,TimePairs))
+		      if (!this->BuildROI(particle, pfParticleList, longestTrack, pfParticleToClusterMap, pfParticlesToVerticesMap,Vertex,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
 			continue;
 		      
 		      //store the ROI found
 		      ana::PiZeroROI pizeroroi;
 		      pizeroroi.SetVertex( Vertex );
 		      pizeroroi.SetROI( WirePairs, TimePairs );
-		      		    
+		      pizeroroi.SetPiZeroROI(PiZeroWirePairs,PiZeroTimePairs);
 		      pizeroroiVector->emplace_back(pizeroroi);
 		      
 
@@ -405,13 +408,20 @@ art::Ptr<recob::PFParticle> PiZeroFilter::FindLongestTrack(const art::Ptr<recob:
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 //lorena - build the ROI
-bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList,art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs) 
+bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList,art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs) 
 {
   //lorena - this is only used here
   std::vector<float>  startw  = std::vector<float>{8256.,8256.,8256.};
   std::vector<float>  startt = std::vector<float>{9600.,9600.,9600.};
   std::vector<float>  endw = std::vector<float>{0.,0.,0.};
   std::vector<float>  endt = std::vector<float>{0.,0.,0.};
+
+  std::vector<float>  pi0startw  = std::vector<float>{8256.,8256.,8256.};
+  std::vector<float>  pi0startt = std::vector<float>{9600.,9600.,9600.};
+  std::vector<float>  pi0endw = std::vector<float>{0.,0.,0.};
+  std::vector<float>  pi0endt = std::vector<float>{0.,0.,0.};
+
+
   
   // 1 - fill with longest track info
   double xyz_track[3] = {0.,0.,0.};
@@ -469,6 +479,10 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
 		endw[c_idx] = std::max(endw[c_idx],std::max(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
 		startt[c_idx] = std::min(startt[c_idx],std::min(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
 		endt[c_idx] = std::max(endt[c_idx],std::max(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
+		pi0startw[c_idx] = std::min(pi0startw[c_idx],std::min(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
+		pi0endw[c_idx] = std::max(pi0endw[c_idx],std::max(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
+		pi0startt[c_idx] = std::min(pi0startt[c_idx],std::min(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
+		pi0endt[c_idx] = std::max(pi0endt[c_idx],std::max(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
               }
             }
           }
@@ -484,6 +498,12 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
 				  std::min(9600.0,double(fPadding)+endt[i]));
     WirePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+startw[i]),
 				  std::min(8256.0,double(fPadding)+endw[i]));
+    PiZeroTimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+pi0startt[i]),
+					std::min(9600.0,double(fPadding)+pi0endt[i]));
+    PiZeroWirePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+pi0startw[i]),
+					std::min(8256.0,double(fPadding)+pi0endw[i]));
+
+
   }
   
   return true;
