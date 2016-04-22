@@ -20,17 +20,18 @@ services : {
   user:
   {
 	#BELOW you see a list of the common services! Uncomment the ones you need.
-  	#ExptGeoHelperInterface:         @local::microboone_geometry_helper
-  	#Geometry:                       @local::microboone_geo
- 	#DetectorProperties:             @local::microboone_detproperties
- 	#LArProperties:                  @local::microboone_properties
- 	#DatabaseUtil:                   @local::microboone_database
+  	ExptGeoHelperInterface:         @local::microboone_geometry_helper
+  	Geometry:                       @local::microboone_geo
+ 	DetectorProperties:             @local::microboone_detproperties
+ 	LArProperties:                  @local::microboone_properties
+ 	DatabaseUtil:                   @local::microboone_database
  	#TimeService:                    @local::microboone_timeservice
- 	#SpaceCharge:                    @local::microboone_spacecharge
- 	#SeedService:                    @local::microboone_seedservice
-	#LArFFT:                         @local::microboone_larfft
-	#SignalShapingServiceMicroBooNE: @local::microboone_signalshapingservice
-	#BackTracker:                    @local::microboone_backtracker  
+        DetectorClocksService:          @local::microboone_detectorclocks
+        SpaceCharge:                    @local::microboone_spacecharge
+ 	SeedService:                    @local::microboone_seedservice
+	LArFFT:                         @local::microboone_larfft
+	SignalShapingServiceMicroBooNE: @local::microboone_signalshapingservice
+	BackTracker:                    @local::microboone_backtracker  
 	#MemoryPeakReporter: {}
 	#OpDigiProperties:               @local::microboone_opdigiproperties
   }
@@ -45,7 +46,6 @@ physics: {
   analyzers: {
      # ParameterSets for zero or more analyzer modules
   }
-
   filters : {
         pizerofilter: @local::microboone_pizerofilter
      # ParameterSets for zero or more filter modules
@@ -72,9 +72,8 @@ outputs: {
             }
 }
 
-physics.filters.pizerofilter.MuonTrackLengthCut: 25.
-physics.filters.pizerofilter.TrackVertexProximityCut: 5.
-physics.filters.pizerofilter.ShowerVertex2dProximityCut: 80.
-physics.filters.pizerofilter.ShowerDetached2dProximityCut: 10.
-physics.filters.pizerofilter.MinMinDetachedShowersPerPlaneCut: 0
-physics.filters.pizerofilter.MinMaxDetachedShowersPerPlaneCut: 0
+
+services.user.DetectorProperties.NumberTimeSamples:                             6400
+services.user.DetectorProperties.ReadOutWindowSize:                             6400
+services.user.DetectorClocksService.InheritClockConfig:                                   false
+services.user.DetectorClocksService.TriggerOffsetTPC:                                     -0.400e3
