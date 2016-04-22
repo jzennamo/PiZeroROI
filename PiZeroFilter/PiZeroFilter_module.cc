@@ -209,7 +209,7 @@ bool PiZeroFilter::filter(art::Event & e)
   //lorena - big loop to find neutrino PFParticle here	  
   for (unsigned int n = 0; n < pfParticleList.size(); ++n)
     {
-      const art::Ptr<recob::PFParticle> particle = pfParticleList.at(n);	  
+     const art::Ptr<recob::PFParticle> particle = pfParticleList.at(n);	  
       
       if (particle->IsPrimary() && lar_pandora::LArPandoraHelper::IsNeutrino(particle))
         { 
@@ -315,6 +315,7 @@ int PiZeroFilter::GetNCloseTracks(const art::Ptr<recob::PFParticle> particle, ar
   
   for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters
     {
+ 
       const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
       if(lar_pandora::LArPandoraHelper::IsTrack(daughter))
         {
@@ -355,14 +356,29 @@ bool PiZeroFilter::IsThereALongTrack(const art::Ptr<recob::PFParticle> particle,
   
   for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters                                                                         
     {
+
       const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
       
       if (lar_pandora::LArPandoraHelper::IsTrack(daughter)) // loop over tracks
         {
-	  const lar_pandora::TrackVector &pfParticleTracks = pfParticleToTrackMap.at(daughter);
+
+	  ///// Joseph added this line to by-pass the exception, which we should understand!!!!
+	  /// HACK HACK HACK !!!!!
 	  
+	  lar_pandora::PFParticlesToTracks::const_iterator TrkMapIter = pfParticleToTrackMap.find(daughter);
+
+	  if(TrkMapIter == pfParticleToTrackMap.end()){
+
+	    std::cout << "\n\n \t\t\t ::: HACK! ::: \n\n" << std::endl;
+
+	    return false;
+	  }
+	  ///// All should judge joseph!
+
+	  const lar_pandora::TrackVector &pfParticleTracks = pfParticleToTrackMap.at(daughter);
+
 	  if (pfParticleTracks.size() > 1)
-	    std::cerr << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
+	    std::cout << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
 	  
 	  if (pfParticleTracks.size() > 0)
             {
@@ -393,7 +409,6 @@ art::Ptr<recob::PFParticle> PiZeroFilter::FindLongestTrack(const art::Ptr<recob:
       if (lar_pandora::LArPandoraHelper::IsTrack(daughter)) // loop over tracks
         {
 	  const lar_pandora::TrackVector &pfParticleTracks = pfParticleToTrackMap.at(daughter);
-	  
 	  if (pfParticleTracks.size() > 1)
 	    std::cerr << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
 	  
@@ -507,8 +522,8 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
   //IMPORTANT! number detached showers cut, disappeared?  
   //Joseph - answer - yep, see above, I think if we want to do this 
   // we need to come up with some clever checks
-  if (n_detached_showers<fMinMinDetachedShowersPerPlaneCut)
-    return false;
+  // if (n_detached_showers<fMinMinDetachedShowersPerPlaneCut)
+    //    return false;
   
   for(int i = 0; i<3; ++i) {
     TimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+startt[i]),
