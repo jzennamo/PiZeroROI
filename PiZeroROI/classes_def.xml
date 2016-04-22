@@ -8,5 +8,9 @@
     </class>
 
  <class name="art::Wrapper<std::vector<ana::PiZeroROI> >"/>
+ <class name="art::Assns<recob::PFParticle, ana::PiZeroROI, void>"/>
+ <class name="art::Wrapper<art::Assns<recob::PFParticle, ana::PiZeroROI, void> >"/>
+ <class name="art::Assns<ana::PiZeroROI, recob::PFParticle, void>"/>
+ <class name="art::Wrapper<art::Assns<ana::PiZeroROI, recob::PFParticle, void> >"/>
  <class name="std::vector<ana::PiZeroROI>"/>
 </lcgdict>
