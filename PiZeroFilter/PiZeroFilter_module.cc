@@ -354,7 +354,7 @@ bool PiZeroFilter::IsThereALongTrack(const art::Ptr<recob::PFParticle> particle,
       
       if (lar_pandora::LArPandoraHelper::IsTrack(daughter)) // loop over tracks
         {
-<<<<<<< HEAD
+
 	  lar_pandora::PFParticlesToTracks::const_iterator trackMapIter = pfParticleToTrackMap.find(daughter);
 	  if (trackMapIter != pfParticleToTrackMap.end()) {
 
@@ -362,27 +362,6 @@ bool PiZeroFilter::IsThereALongTrack(const art::Ptr<recob::PFParticle> particle,
 
 	    if (pfParticleTracks.size() > 1)
 	      std::cerr << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
-=======
-
-	  ///// Joseph added this line to by-pass the exception, which we should understand!!!!
-	  /// HACK HACK HACK !!!!!
-	  
-	  lar_pandora::PFParticlesToTracks::const_iterator TrkMapIter = pfParticleToTrackMap.find(daughter);
-
-	  if(TrkMapIter == pfParticleToTrackMap.end()){
-
-	    std::cout << "\n\n \t\t\t ::: HACK! ::: \n\n" << std::endl;
-
-	    return false;
-	  }
-	  ///// All should judge joseph!
-
-	  const lar_pandora::TrackVector &pfParticleTracks = pfParticleToTrackMap.at(daughter);
-
-	  if (pfParticleTracks.size() > 1)
-	    std::cout << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
->>>>>>> cc1256c598e0fbba1732de3124d0cfb7587515e0
-	  
 	    if (pfParticleTracks.size() > 0)
 	      {
 		art::Ptr<recob::Track> daughterTrack = pfParticleTracks.front();
