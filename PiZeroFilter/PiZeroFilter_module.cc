@@ -182,19 +182,16 @@ bool PiZeroFilter::filter(art::Event & e)
   lar_pandora::PFParticleVector pfParticleList; //vector of PFParticles
   lar_pandora::VertexVector vertexVector; //vector of vertices
   lar_pandora::TrackVector allPfParticleTracks; //all PFParticle tracks
-  lar_pandora::ShowerVector allPfParticleShowers; //all PFParticle showers
   lar_pandora::PFParticlesToClusters pfParticleToClusterMap; //PFParticle-to-cluster map
   lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap; //PFParticle-to-vertex map
   lar_pandora::PFParticlesToTracks pfParticleToTrackMap; //PFParticle-to-track map
-  lar_pandora::PFParticlesToShowers pfParticleToShowerMap; //PFParticle-to-shower map
   
   lar_pandora::LArPandoraHelper::CollectPFParticles(e, fPFPModuleLabel, pfParticleList, pfParticleToClusterMap); //collect PFParticles and map to clusters
   lar_pandora::LArPandoraHelper::CollectVertices(e, fPFPModuleLabel, vertexVector, pfParticlesToVerticesMap); //map PFParticles-to-vertex
   lar_pandora::LArPandoraHelper::CollectTracks(e, fPFPModuleLabel, allPfParticleTracks, pfParticleToTrackMap);//map PFParticles-to-tracks
-  lar_pandora::LArPandoraHelper::CollectShowers(e, fPFPModuleLabel, allPfParticleShowers, pfParticleToShowerMap);//map PfParticles-to-showers
   //lorena - question, do we need more than one module label?	  
   //Joseph - answer - probably not. 
-
+  // lets use only pandoraNu then
 
   //lorena - a check... 
   std::cout << "Number of PFParticles = "<< pfParticleList.size() << std::endl;
@@ -229,9 +226,9 @@ bool PiZeroFilter::filter(art::Event & e)
 		      
 		      if (!this->NeutrinoHasAtLeastOneTrackAndTwoShowers(particle,pfParticleList))
 			continue;
-		      
+
 		      const int n_close_tracks = this->GetNCloseTracks(particle, nuVertex, pfParticlesToVerticesMap,pfParticleList);
-                      
+
 		      if (fnShw > 2 || n_close_tracks > 2)
 			continue;//lorena - why this cut?  
 		      //Joseph - answer - I found this increased the purity a lot
@@ -240,7 +237,7 @@ bool PiZeroFilter::filter(art::Event & e)
 		      
 		      if (!this->IsThereALongTrack(particle,pfParticleList, pfParticleToTrackMap))
 			continue;
-		      
+
 		      //Lorena: IMPORTANT! - This needs checks - ShowerDetachedProximityCut not used in latest version? 
 		      // Joseph - answer - I dropped the ShowerDetachedProximityCut cut 
 		      // because it didn't seem to be having a large impact on the events 
@@ -280,13 +277,12 @@ bool PiZeroFilter::filter(art::Event & e)
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-//lorena - function to check neutrino has at least one track and two showers
 //this could be more generic CheckNTracksAndShowers and minimum could be parameter in .xml
 bool PiZeroFilter::NeutrinoHasAtLeastOneTrackAndTwoShowers(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList)
 {
   unsigned int n_tracks = 0, n_showers = 0;
   const std::vector<size_t> &daughterIDs = particle->Daughters();
-  
+
   for (size_t j = 0; j < daughterIDs.size(); ++j)
     {
       if (lar_pandora::LArPandoraHelper::IsTrack(pfParticleList.at(daughterIDs[j]))) ++n_tracks;
@@ -304,7 +300,6 @@ bool PiZeroFilter::NeutrinoHasAtLeastOneTrackAndTwoShowers(const art::Ptr<recob:
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-//lorena - get number of close tracks
 int PiZeroFilter::GetNCloseTracks(const art::Ptr<recob::PFParticle> particle, art::Ptr<recob::Vertex> nuVertex, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, lar_pandora::PFParticleVector pfParticleList) const
 { 
   int close_tracks = 0;
@@ -325,7 +320,7 @@ int PiZeroFilter::GetNCloseTracks(const art::Ptr<recob::PFParticle> particle, ar
 	      const lar_pandora::VertexVector &daughterVertices = vertexMapIter->second;
 	      //vertices
 	      if (daughterVertices.empty())
-		std::cerr << "Error! daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << " has no vertex!" << std::endl;
+		std::cerr << "Error! daughter particle with ID " << pfParticleList.at(daughterIDs[j])->Self() << " has no vertex!" << std::endl;
 	      
 	      if (daughterVertices.size() > 1)
 		std::cerr << "Warning: more than one vertex found for neutrino daughter with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
@@ -335,32 +330,39 @@ int PiZeroFilter::GetNCloseTracks(const art::Ptr<recob::PFParticle> particle, ar
 		  art::Ptr<recob::Vertex> daughterVertex = daughterVertices.front();
 		  double xyz_d[3] = {0.,0.,0.};
 		  daughterVertex->XYZ(xyz_d);
-		  
-		  const float dist = std::sqrt(std::pow(xyz_p[0]-xyz_d[0],2)+std::pow(xyz_p[1]-xyz_d[1],2)+std::pow(xyz_p[2]-xyz_d[2],2));// std::pow deprecated
+
+		  const float dist = std::sqrt(pow(xyz_p[0]-xyz_d[0],2)+pow(xyz_p[1]-xyz_d[1],2)+pow(xyz_p[2]-xyz_d[2],2));
 		  if(dist<fTrackVertexProximityCut)
 		    ++close_tracks;
                 }
 	    }
         }
     }
-  
   return close_tracks;	
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-//lorena -find whether there is at least one long track 
 bool PiZeroFilter::IsThereALongTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const
 {
   const std::vector<size_t> &daughterIDs = particle->Daughters();
   
-  for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters                                                                         
+  for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters                                                               
     {
 
       const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
       
       if (lar_pandora::LArPandoraHelper::IsTrack(daughter)) // loop over tracks
         {
+<<<<<<< HEAD
+	  lar_pandora::PFParticlesToTracks::const_iterator trackMapIter = pfParticleToTrackMap.find(daughter);
+	  if (trackMapIter != pfParticleToTrackMap.end()) {
+
+	    const lar_pandora::TrackVector &pfParticleTracks = trackMapIter->second;
+
+	    if (pfParticleTracks.size() > 1)
+	      std::cerr << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
+=======
 
 	  ///// Joseph added this line to by-pass the exception, which we should understand!!!!
 	  /// HACK HACK HACK !!!!!
@@ -379,62 +381,74 @@ bool PiZeroFilter::IsThereALongTrack(const art::Ptr<recob::PFParticle> particle,
 
 	  if (pfParticleTracks.size() > 1)
 	    std::cout << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
+>>>>>>> cc1256c598e0fbba1732de3124d0cfb7587515e0
 	  
-	  if (pfParticleTracks.size() > 0)
-            {
-	      art::Ptr<recob::Track> daughterTrack = pfParticleTracks.front();
-	      const float trkl = (daughterTrack->Vertex()-daughterTrack->End()).Mag();
-	      
-	      if(trkl>fMuonTrackLengthCut)
-		return true;
-            }
-        }
+	    if (pfParticleTracks.size() > 0)
+	      {
+		art::Ptr<recob::Track> daughterTrack = pfParticleTracks.front();
+		const float trkl = (daughterTrack->Vertex()-daughterTrack->End()).Mag();
+		
+		if(trkl>fMuonTrackLengthCut)
+		  return true;
+	      }
+	  }
+	}
     }
   return false;
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-//lorena - find the longest track
 art::Ptr<recob::PFParticle> PiZeroFilter::FindLongestTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const
 {
-  float max_trkl = -std::numeric_limits<float>::max(); // double-check and, if good, re-use in other places!
-  size_t longest_trk_idx = -std::numeric_limits<size_t>::max();
+  float max_trkl = -std::numeric_limits<float>::max(); 
+  size_t longest_trk_idx = static_cast<size_t>(-1);//(size_t)-999;
 
   const std::vector<size_t> &daughterIDs = particle->Daughters();
-  for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters                                                                         
+  
+  for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters                                                                  
     {
       const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
       
       if (lar_pandora::LArPandoraHelper::IsTrack(daughter)) // loop over tracks
         {
+<<<<<<< HEAD
+=======
 	  const lar_pandora::TrackVector &pfParticleTracks = pfParticleToTrackMap.at(daughter);
 	  if (pfParticleTracks.size() > 1)
 	    std::cerr << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
+>>>>>>> cc1256c598e0fbba1732de3124d0cfb7587515e0
 	  
-	  if (pfParticleTracks.size() > 0)
-            {
-	      art::Ptr<recob::Track> daughterTrack = pfParticleTracks.front();
-	      const float trkl = (daughterTrack->Vertex()-daughterTrack->End()).Mag();
+	  lar_pandora::PFParticlesToTracks::const_iterator trackMapIter = pfParticleToTrackMap.find(daughter);
+          if (trackMapIter != pfParticleToTrackMap.end()) 
+	    {
 	      
-	      if((trkl>fMuonTrackLengthCut)&& (trkl>max_trkl)){
-		//if longest so far                                                                                                                       
-		max_trkl = trkl;
-		longest_trk_idx = pfParticleList.at(daughterIDs[j])->Self(); // lorena: Check this!
-	      }
-	      
-            }
+	      const lar_pandora::TrackVector &pfParticleTracks = trackMapIter->second;
+	      if (pfParticleTracks.size() > 1)
+		std::cerr << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
+	      if (pfParticleTracks.size() > 0)
+		{
+		  art::Ptr<recob::Track> daughterTrack = pfParticleTracks.front();
+		  const float trkl = (daughterTrack->Vertex()-daughterTrack->End()).Mag();
+		  
+		  if((trkl>fMuonTrackLengthCut)&& (trkl>max_trkl)){
+		    //if longest so far                                                                                                      
+		    max_trkl = trkl;
+		    longest_trk_idx = pfParticleList.at(daughterIDs[j])->Self(); 
+		  }
+		}
+	    }
         }
     }
+  
   return pfParticleList.at(longest_trk_idx);
 }
 
 
 //------------------------------------------------------------------------------------------------------------------------------------------
-
-//lorena - build the ROI
 bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList,art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs) 
 {
+
   //lorena - this is only used here
   std::vector<float>  startw  = std::vector<float>{8256.,8256.,8256.};
   std::vector<float>  startt = std::vector<float>{9600.,9600.,9600.};
@@ -446,23 +460,25 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
   std::vector<float>  pi0endw = std::vector<float>{0.,0.,0.};
   std::vector<float>  pi0endt = std::vector<float>{0.,0.,0.};
 
-
   
   // 1 - fill with longest track info
   double xyz_track[3] = {0.,0.,0.};
   lar_pandora::PFParticlesToVertices::const_iterator trackVertexMapIter = pfParticlesToVerticesMap.find(longestTrack);
+
   if (trackVertexMapIter == pfParticlesToVerticesMap.end())
     std::cerr << "Warning: longest track has no vertex!" << std::endl;
+  
   lar_pandora::VertexVector trackVertices = trackVertexMapIter->second;
   if (trackVertices.size() > 1)
     std::cerr << "Warning: more than one vertex found for the longest track!" << std::endl;
-
+  
   art::Ptr<recob::Vertex> trackVertex = trackVertices.front();
   trackVertex->XYZ(xyz_track);
-  
+
   lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(longestTrack); 
   if (clusterMapIter != pfParticleToClusterMap.end()) {
     lar_pandora::ClusterVector trackClusters = clusterMapIter->second;
+
     for(unsigned int i = 0; i < trackClusters.size(); ++i)
       {
 	auto c_idx = trackClusters[i]->Plane().Plane;
@@ -477,45 +493,55 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
   // 2 - find detached but close showers
   int n_detached_showers = 0;  
   const std::vector<size_t> &daughterIDs = particle->Daughters();
+  
   for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters                                                                
     {
       const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
       if(lar_pandora::LArPandoraHelper::IsShower(daughter)) // loop over showers
         {
-          lar_pandora::PFParticlesToVertices::const_iterator vertexMapIter = pfParticlesToVerticesMap.find(daughter); //get vertex                             
-          if (vertexMapIter == pfParticlesToVerticesMap.end()) continue;
-          lar_pandora::VertexVector showerVertices = vertexMapIter->second;
-          if (showerVertices.size() > 1) 
-	    continue;
-          art::Ptr<recob::Vertex> showerVertex = showerVertices.front();
-          double xyz_shower[3] = {0.,0.,0.};
-          showerVertex->XYZ(xyz_shower);
-          //IMPORTANT! detached clusters proximity cut, using vertices?
-	  //Joseph - answer - I don't think we only want to check vertices
-	  // if anything I think that we want to check that all parts of the cluster
-	  // are detachted from the track, maybe if we find some minimally bounding 
-	  // polygon we can check if the muon cluster intersects it, thoughts?
-
-          float dist = std::sqrt(std::pow(xyz_track[0]-xyz_shower[0],2)+std::pow(xyz_track[1]-xyz_shower[1],2)+std::pow(xyz_track[2]-xyz_shower[2],2));//distance shower-track
-          if(dist<fShowerDetached2dProximityCut){
-            ++n_detached_showers;
-	    
-            lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(daughter);//find clusters                        
-            if (clusterMapIter != pfParticleToClusterMap.end()) {
-              lar_pandora::ClusterVector showerClusters = clusterMapIter->second;
-              for(int i = 0; i<3; ++i) {
-		auto c_idx = showerClusters[i]->Plane().Plane;
-		startw[c_idx] = std::min(startw[c_idx],std::min(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
-		endw[c_idx] = std::max(endw[c_idx],std::max(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
-		startt[c_idx] = std::min(startt[c_idx],std::min(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
-		endt[c_idx] = std::max(endt[c_idx],std::max(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
-		pi0startw[c_idx] = std::min(pi0startw[c_idx],std::min(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
-		pi0endw[c_idx] = std::max(pi0endw[c_idx],std::max(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
-		pi0startt[c_idx] = std::min(pi0startt[c_idx],std::min(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
-		pi0endt[c_idx] = std::max(pi0endt[c_idx],std::max(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
-              }
-            }
-          }
+	  lar_pandora::PFParticlesToVertices::const_iterator vertexMapIter = pfParticlesToVerticesMap.find(daughter);          
+	  
+	  if (vertexMapIter != pfParticlesToVerticesMap.end())
+	    { //get vertex                             
+	      
+	      lar_pandora::VertexVector showerVertices = vertexMapIter->second;
+	      if (showerVertices.size() > 1) 
+		continue;
+	      art::Ptr<recob::Vertex> showerVertex = showerVertices.front();
+	      double xyz_shower[3] = {0.,0.,0.};
+	      showerVertex->XYZ(xyz_shower);
+	      
+	      //IMPORTANT! detached clusters proximity cut, using vertices?
+	      //Joseph - answer - I don't think we only want to check vertices
+	      // if anything I think that we want to check that all parts of the cluster
+	      // are detachted from the track, maybe if we find some minimally bounding 
+	      // polygon we can check if the muon cluster intersects it, thoughts?
+	      
+	      float dist = std::sqrt(pow(xyz_track[0]-xyz_shower[0],2)+pow(xyz_track[1]-xyz_shower[1],2)+pow(xyz_track[2]-xyz_shower[2],2));
+	      
+	      if(dist<fShowerDetached2dProximityCut){
+		++n_detached_showers;
+		
+		lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(daughter);//find clusters                        
+		if (clusterMapIter != pfParticleToClusterMap.end()) 
+		  {
+		    lar_pandora::ClusterVector showerClusters = clusterMapIter->second;
+		    for(unsigned int i = 0; i < showerClusters.size(); ++i)
+		      {
+			auto c_idx = showerClusters[i]->Plane().Plane;
+			startw[c_idx] = std::min(startw[c_idx],std::min(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
+			endw[c_idx] = std::max(endw[c_idx],std::max(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
+			startt[c_idx] = std::min(startt[c_idx],std::min(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
+			endt[c_idx] = std::max(endt[c_idx],std::max(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
+			pi0startw[c_idx] = std::min(pi0startw[c_idx],std::min(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
+			pi0endw[c_idx] = std::max(pi0endw[c_idx],std::max(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
+			pi0startt[c_idx] = std::min(pi0startt[c_idx],std::min(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
+			pi0endt[c_idx] = std::max(pi0endt[c_idx],std::max(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
+			
+		      }
+		  }
+	      }
+	    }
         }
     }
   
@@ -534,8 +560,7 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
 					std::min(9600.0,double(fPadding)+pi0endt[i]));
     PiZeroWirePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+pi0startw[i]),
 					std::min(8256.0,double(fPadding)+pi0endw[i]));
-
-
+    
   }
   
   return true;
