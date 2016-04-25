@@ -61,12 +61,12 @@ private:
   std::string fVertexModuleLabel;
   std::string fClusterModuleLabel;
   std::string fTrackModuleLabel;
-  // ShowerModuleLabel:          "showerrecopandora"
     
   float fMuonTrackLengthCut;
   float fTrackVertexProximityCut;
   float fShowerVertex2dProximityCut;
   float fShowerDetached2dProximityCut;
+  bool  fUseVerticesForDetachedCut;
   float fMinMinDetachedShowersPerPlaneCut;
   float fMinMaxDetachedShowersPerPlaneCut;
   float fPadding;
@@ -91,9 +91,17 @@ private:
   int fMCPdg;
 
   bool NeutrinoHasAtLeastOneTrackAndTwoShowers(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList);
+
   int GetNCloseTracks(const art::Ptr<recob::PFParticle> particle, art::Ptr<recob::Vertex> nuVertex, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, lar_pandora::PFParticleVector pfParticleList) const;
+
   bool IsThereALongTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const;  
+
   art::Ptr<recob::PFParticle> FindLongestTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const;
+
+  const bool DetachedSegments(float p1x, float p2x, float p1y, float p2y, float q1x, float q2x,float q1y, float q2y) const;
+
+  const bool IsDetached(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap) const;
+
   bool BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs);
     
 };
@@ -198,7 +206,12 @@ bool PiZeroFilter::filter(art::Event & e)
     }
 
   if(nprim!=1) 
-    return false;
+    {
+      e.put( std::move(pizeroroiVector) );
+      e.put( std::move(ROI_PFP_Assn) );
+      
+      return false;
+    }
   
   //Big filter loop starts here...
   for (unsigned int n = 0; n < pfParticleList.size(); ++n)
@@ -250,7 +263,7 @@ bool PiZeroFilter::filter(art::Event & e)
 			  throw art::Exception(art::errors::InsertFailure)
 			    << "Can't associate";
 			}
-
+		      
 		      pass = true;
                     }//if there is one vertex
                 }//
@@ -405,6 +418,116 @@ art::Ptr<recob::PFParticle> PiZeroFilter::FindLongestTrack(const art::Ptr<recob:
   return pfParticleList.at(longest_trk_idx);
 }
 
+//-----------------------------------------------------------------------------------------------------------------------------------------
+const bool PiZeroFilter::DetachedSegments(float p1x, float p2x, float p1y, float p2y, float q1x, float q2x,float q1y, float q2y) const
+{
+  //do cross product of vectors of the two segments
+  double cross_prod = (p1y-p2y)*(q1x-q2x)-(p1x-p2x)*(q1y-q2y);
+  bool parallel = false;
+  bool onsegment = false;
+  if (cross_prod == 0) parallel = true;
+  if( ((q1x <= std::max(p1x, p2x) && q1x >= std::min(p1x, p2x) && (q1y <= std::max(p1y, p2y) && q1y >= std::min(p1y, p2y)))) ||
+      ((q2x <= std::max(p1x, p2x) && q2x >= std::min(p1x, p2x) && (q2y <= std::max(p1y, p2y) && q2y >= std::min(p1y, p2y)))))
+    onsegment = true;
+  
+  if(parallel && onsegment) 
+    return false; //coincident
+
+  if(!parallel)
+    {
+      double cross_prod_1 = (p1y-p2y)*(p1x-q1x)-(p1x-p2x)*(p1y-q1y);
+      double cross_prod_2 = (p1y-p2y)*(p1x-q2x)-(p1x-p2x)*(p1y-q2y);
+      if((cross_prod_1>0 && cross_prod_2<0)||(cross_prod_1<0 && cross_prod_2>0))
+	return false; //they cross
+    }
+  //otherwise, calculate distance from one to another 
+
+  if(
+     (std::sqrt(pow(p1x-q1x,2)+pow(p1y-q1y,2))< fShowerDetached2dProximityCut)||
+     (std::sqrt(pow(p1x-q2x,2)+pow(p1y-q2y,2))< fShowerDetached2dProximityCut)||
+     (std::sqrt(pow(p2x-q1x,2)+pow(p2y-q1y,2))< fShowerDetached2dProximityCut)||
+     (std::sqrt(pow(p2x-q2x,2)+pow(p2y-q2y,2))< fShowerDetached2dProximityCut)
+     )
+    return false;
+
+  return true;
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------------------
+const bool PiZeroFilter::IsDetached(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap) const
+{
+  if (fUseVerticesForDetachedCut)
+    {
+      //first, get vertex of the track
+      double xyz_track[3] = {0.,0.,0.};
+      lar_pandora::PFParticlesToVertices::const_iterator trackVertexMapIter = pfParticlesToVerticesMap.find(track);
+      
+      if (trackVertexMapIter == pfParticlesToVerticesMap.end())
+	std::cerr << "Warning: No vertex found for the longest track!" << std::endl;
+      
+      lar_pandora::VertexVector trackVertices = trackVertexMapIter->second;
+      if (trackVertices.size() > 1)
+	std::cerr << "Warning: more than one vertex found for the longest track!" << std::endl;
+      
+      art::Ptr<recob::Vertex> trackVertex = trackVertices.front();
+      trackVertex->XYZ(xyz_track);
+      
+      //then, vertex of the shower
+      lar_pandora::PFParticlesToVertices::const_iterator vertexMapIter = pfParticlesToVerticesMap.find(shower);
+      
+      if (vertexMapIter != pfParticlesToVerticesMap.end())
+	{ //get vertex                                                                                                                    
+	  lar_pandora::VertexVector showerVertices = vertexMapIter->second;
+	  if (showerVertices.size() > 1)
+	    return false;
+	  art::Ptr<recob::Vertex> showerVertex = showerVertices.front();
+	  double xyz_shower[3] = {0.,0.,0.};
+	  showerVertex->XYZ(xyz_shower);
+	  
+	  float dist = std::sqrt(pow(xyz_track[0]-xyz_shower[0],2)+pow(xyz_track[1]-xyz_shower[1],2)+pow(xyz_track[2]-xyz_shower[2],2));
+	
+	  if(dist<fShowerDetached2dProximityCut)
+	    return true;
+	}
+      else
+	return false;
+    }
+  else
+    {
+      bool pass_all = true;
+      
+      lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(track);
+      if (clusterMapIter != pfParticleToClusterMap.end()) {
+	lar_pandora::ClusterVector trackClusters = clusterMapIter->second;
+	
+	for(unsigned int i = 0; i < trackClusters.size(); ++i)
+	  {
+	    auto c_idx = trackClusters[i]->Plane().Plane;
+	    trackClusters[i];
+	    
+	    lar_pandora::PFParticlesToClusters::const_iterator showerClusterMapIter = pfParticleToClusterMap.find(shower);
+	    if (showerClusterMapIter != pfParticleToClusterMap.end()) {
+	      lar_pandora::ClusterVector showerClusters = showerClusterMapIter->second;
+
+	      for(unsigned int j = 0; j < showerClusters.size(); ++j)
+		{
+		  auto c_jdx = showerClusters[j]->Plane().Plane;
+		  if(c_idx==c_jdx)
+		    {
+		      if(!this->DetachedSegments(trackClusters[i]->StartTick(),trackClusters[i]->EndTick(),trackClusters[i]->StartWire(), trackClusters[i]->EndWire(), showerClusters[j]->StartTick(),showerClusters[j]->EndTick(),showerClusters[j]->StartWire(),showerClusters[j]->EndWire()))
+			pass_all = false;
+		      
+		    } 
+		}
+	    }
+	  }
+      }
+      
+      return pass_all;
+      
+    }
+  return false;
+}
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList,art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs) 
@@ -422,19 +545,6 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
 
   
   // 1 - fill with longest track info
-  double xyz_track[3] = {0.,0.,0.};
-  lar_pandora::PFParticlesToVertices::const_iterator trackVertexMapIter = pfParticlesToVerticesMap.find(longestTrack);
-
-  if (trackVertexMapIter == pfParticlesToVerticesMap.end())
-    std::cerr << "Warning: longest track has no vertex!" << std::endl;
-  
-  lar_pandora::VertexVector trackVertices = trackVertexMapIter->second;
-  if (trackVertices.size() > 1)
-    std::cerr << "Warning: more than one vertex found for the longest track!" << std::endl;
-  
-  art::Ptr<recob::Vertex> trackVertex = trackVertices.front();
-  trackVertex->XYZ(xyz_track);
-
   lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(longestTrack); 
   if (clusterMapIter != pfParticleToClusterMap.end()) {
     lar_pandora::ClusterVector trackClusters = clusterMapIter->second;
@@ -459,51 +569,35 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
       const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
       if(lar_pandora::LArPandoraHelper::IsShower(daughter)) // loop over showers
         {
-	  lar_pandora::PFParticlesToVertices::const_iterator vertexMapIter = pfParticlesToVerticesMap.find(daughter);          
-	  
-	  if (vertexMapIter != pfParticlesToVerticesMap.end())
-	    { //get vertex                             
+	  if(this->IsDetached(longestTrack,daughter,pfParticleToClusterMap,pfParticlesToVerticesMap))
+	    {
+	      ++n_detached_showers;
 	      
-	      lar_pandora::VertexVector showerVertices = vertexMapIter->second;
-	      if (showerVertices.size() > 1) 
-		continue;
-	      art::Ptr<recob::Vertex> showerVertex = showerVertices.front();
-	      double xyz_shower[3] = {0.,0.,0.};
-	      showerVertex->XYZ(xyz_shower);
-	      
-	      float dist = std::sqrt(pow(xyz_track[0]-xyz_shower[0],2)+pow(xyz_track[1]-xyz_shower[1],2)+pow(xyz_track[2]-xyz_shower[2],2));
-	      
-	      if(dist<fShowerDetached2dProximityCut){
-		++n_detached_showers;
-		
-		lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(daughter);//find clusters                        
-		if (clusterMapIter != pfParticleToClusterMap.end()) 
-		  {
-		    lar_pandora::ClusterVector showerClusters = clusterMapIter->second;
-		    for(unsigned int i = 0; i < showerClusters.size(); ++i)
-		      {
-			auto c_idx = showerClusters[i]->Plane().Plane;
-			startw[c_idx] = std::min(startw[c_idx],std::min(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
-			endw[c_idx] = std::max(endw[c_idx],std::max(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
-			startt[c_idx] = std::min(startt[c_idx],std::min(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
-			endt[c_idx] = std::max(endt[c_idx],std::max(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
-			pi0startw[c_idx] = std::min(pi0startw[c_idx],std::min(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
-			pi0endw[c_idx] = std::max(pi0endw[c_idx],std::max(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
-			pi0startt[c_idx] = std::min(pi0startt[c_idx],std::min(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
-			pi0endt[c_idx] = std::max(pi0endt[c_idx],std::max(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
-			
-		      }
-		  }
-	      }
+	      lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(daughter);//find clusters                        
+	      if (clusterMapIter != pfParticleToClusterMap.end()) 
+		{
+		  lar_pandora::ClusterVector showerClusters = clusterMapIter->second;
+		  for(unsigned int i = 0; i < showerClusters.size(); ++i)
+		    {
+		      auto c_idx = showerClusters[i]->Plane().Plane;
+		      startw[c_idx] = std::min(startw[c_idx],std::min(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
+		      endw[c_idx] = std::max(endw[c_idx],std::max(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
+		      startt[c_idx] = std::min(startt[c_idx],std::min(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
+		      endt[c_idx] = std::max(endt[c_idx],std::max(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
+		      pi0startw[c_idx] = std::min(pi0startw[c_idx],std::min(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
+		      pi0endw[c_idx] = std::max(pi0endw[c_idx],std::max(showerClusters[i]->StartWire(),showerClusters[i]->EndWire()));
+		      pi0startt[c_idx] = std::min(pi0startt[c_idx],std::min(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
+		      pi0endt[c_idx] = std::max(pi0endt[c_idx],std::max(showerClusters[i]->StartTick(),showerClusters[i]->EndTick()));
+		      
+		    }
+		}
 	    }
         }
     }
-  
-  //IMPORTANT! number detached showers cut, disappeared?  
-  //Joseph - answer - yep, see above, I think if we want to do this 
-  // we need to come up with some clever checks
+
+  //do we still want to use this?
   // if (n_detached_showers<fMinMinDetachedShowersPerPlaneCut)
-    //    return false;
+  //    return false;
   
   for(int i = 0; i<3; ++i) {
     TimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+startt[i]),
@@ -535,6 +629,7 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
   fTrackVertexProximityCut = p.get<float>("TrackVertexProximityCut");
   fShowerVertex2dProximityCut = p.get<float>("ShowerVertex2dProximityCut");
   fShowerDetached2dProximityCut = p.get<float>("ShowerDetached2dProximityCut");
+  fUseVerticesForDetachedCut = p.get<bool>("UseVerticesForDetachedCut");
   fMinMinDetachedShowersPerPlaneCut = p.get<int>("MinMinDetachedShowersPerPlaneCut");
   fMinMaxDetachedShowersPerPlaneCut = p.get<int>("MinMaxDetachedShowersPerPlaneCut");
   fPadding = p.get<float>("Padding");

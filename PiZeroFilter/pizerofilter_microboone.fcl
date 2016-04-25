@@ -13,6 +13,7 @@ microboone_pizerofilter:
     TrackVertexProximityCut: 5.
     ShowerVertex2dProximityCut: 80.  
     ShowerDetached2dProximityCut: 10.
+    UseVerticesForDetachedCut: false
     MinMinDetachedShowersPerPlaneCut: 1
     MinMaxDetachedShowersPerPlaneCut: 2
     Padding: 30
