@@ -32,7 +32,6 @@
 
 #include "lardata/MCBase/MCShower.h"
 
-//lorena - include larpandora
 #include "larpandora/LArPandoraInterface/LArPandoraHelper.h"
 
 class PiZeroFilter;
@@ -63,11 +62,7 @@ private:
   std::string fClusterModuleLabel;
   std::string fTrackModuleLabel;
   // ShowerModuleLabel:          "showerrecopandora"
-  
-  std::string fPFPVertexAssnModuleLabel;
-  std::string fPFPClusterAssnModuleLabel;
-  std::string fPFPTrackAssnModuleLabel;
-  
+    
   float fMuonTrackLengthCut;
   float fTrackVertexProximityCut;
   float fShowerVertex2dProximityCut;
@@ -162,7 +157,7 @@ bool PiZeroFilter::filter(art::Event & e)
   std::map<int,std::vector<float> > nuMuonStartWire;
   std::map<int,std::vector<float> > nuMuonStartTick;
   std::map<int,std::vector<int> > nDetachedShowers;
-  //lorena - does these need to be maps? dont we want just one ROI per event?
+
   std::vector<ana::PiZeroROI> pizeroroi_v;
   std::vector<std::pair<int,int> > Vertex(3);
   std::vector<std::pair<int,int> > TimePairs(3);
@@ -175,9 +170,10 @@ bool PiZeroFilter::filter(art::Event & e)
   std::unique_ptr<art::Assns<recob::PFParticle, ana::PiZeroROI> > ROI_PFP_Assn(new art::Assns<recob::PFParticle, ana::PiZeroROI>); 
     
   // * PFParticles
-  //lorena - these vectors and maps will contain the associations between pfparticles and vertices, tracks, clusters, etc
+  //These vectors and maps will contain the associations between pfparticles and vertices, tracks, clusters, etc
   //these vectors and maps are filled up inside LArPandoraHelper, should have the right associations
-  
+  //careful with usage though: inside LArPandoraHelper, loop over e.g. tracks, not saving entry for a PFParticle without track
+
   std::cout << "Getting the PFParticles... "<< std::endl;	
   lar_pandora::PFParticleVector pfParticleList; //vector of PFParticles
   lar_pandora::VertexVector vertexVector; //vector of vertices
@@ -189,21 +185,22 @@ bool PiZeroFilter::filter(art::Event & e)
   lar_pandora::LArPandoraHelper::CollectPFParticles(e, fPFPModuleLabel, pfParticleList, pfParticleToClusterMap); //collect PFParticles and map to clusters
   lar_pandora::LArPandoraHelper::CollectVertices(e, fPFPModuleLabel, vertexVector, pfParticlesToVerticesMap); //map PFParticles-to-vertex
   lar_pandora::LArPandoraHelper::CollectTracks(e, fPFPModuleLabel, allPfParticleTracks, pfParticleToTrackMap);//map PFParticles-to-tracks
-  //lorena - question, do we need more than one module label?	  
-  //Joseph - answer - probably not. 
-  // lets use only pandoraNu then
 
-  //lorena - a check... 
   std::cout << "Number of PFParticles = "<< pfParticleList.size() << std::endl;
   
+  //Added a check to have one and only one neutrino for a cleaner sample
   short nprim = 0;
-  for (const art::Ptr<recob::PFParticle> particle : pfParticleList)
+  for (unsigned int n = 0; n < pfParticleList.size(); ++n)
     {
-      if (particle->IsPrimary())
+      const art::Ptr<recob::PFParticle> particle = pfParticleList.at(n);
+      if (particle->IsPrimary() && lar_pandora::LArPandoraHelper::IsNeutrino(particle))
 	nprim++;
     }
+
+  if(nprim!=1) 
+    return false;
   
-  //lorena - big loop to find neutrino PFParticle here	  
+  //Big filter loop starts here...
   for (unsigned int n = 0; n < pfParticleList.size(); ++n)
     {
      const art::Ptr<recob::PFParticle> particle = pfParticleList.at(n);	  
@@ -230,21 +227,13 @@ bool PiZeroFilter::filter(art::Event & e)
 		      const int n_close_tracks = this->GetNCloseTracks(particle, nuVertex, pfParticlesToVerticesMap,pfParticleList);
 
 		      if (fnShw > 2 || n_close_tracks > 2)
-			continue;//lorena - why this cut?  
-		      //Joseph - answer - I found this increased the purity a lot
-		      // There was many very busy events being selected
-		      // This reduced it to only simple events
+			continue;
 		      
 		      if (!this->IsThereALongTrack(particle,pfParticleList, pfParticleToTrackMap))
 			continue;
 
-		      //Lorena: IMPORTANT! - This needs checks - ShowerDetachedProximityCut not used in latest version? 
-		      // Joseph - answer - I dropped the ShowerDetachedProximityCut cut 
-		      // because it didn't seem to be having a large impact on the events 
-		      // being selected, when running over cosmic events though there did
-		      // seem to be a sizable fraction of muon brems being selected, and
-		      // those were mostly overlapping the reco'ed muon.
 		      art::Ptr<recob::PFParticle> longestTrack = this->FindLongestTrack(particle,pfParticleList, pfParticleToTrackMap);
+
 		      if (!this->BuildROI(particle, pfParticleList, longestTrack, pfParticleToClusterMap, pfParticlesToVerticesMap,Vertex,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
 			continue;
 		      
@@ -289,13 +278,12 @@ bool PiZeroFilter::NeutrinoHasAtLeastOneTrackAndTwoShowers(const art::Ptr<recob:
       else if (lar_pandora::LArPandoraHelper::IsShower(pfParticleList.at(daughterIDs[j]))) ++n_showers;
     }
   
-  //lorena - add this here, not sure the best place though
   fnShw = n_showers;
   fnTrk = n_tracks;
   fnNuMuCC = (n_tracks>=1)&&(n_showers>=2);
   fallEventTree->Fill();
   
-  return ((n_tracks>=1) && (n_showers>=2)); //lorena - min can be another parameter in .xml
+  return ((n_tracks>=1) && (n_showers>=2)); 
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -391,13 +379,7 @@ art::Ptr<recob::PFParticle> PiZeroFilter::FindLongestTrack(const art::Ptr<recob:
       
       if (lar_pandora::LArPandoraHelper::IsTrack(daughter)) // loop over tracks
         {
-<<<<<<< HEAD
-=======
-	  const lar_pandora::TrackVector &pfParticleTracks = pfParticleToTrackMap.at(daughter);
-	  if (pfParticleTracks.size() > 1)
-	    std::cerr << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
->>>>>>> cc1256c598e0fbba1732de3124d0cfb7587515e0
-	  
+
 	  lar_pandora::PFParticlesToTracks::const_iterator trackMapIter = pfParticleToTrackMap.find(daughter);
           if (trackMapIter != pfParticleToTrackMap.end()) 
 	    {
@@ -428,7 +410,6 @@ art::Ptr<recob::PFParticle> PiZeroFilter::FindLongestTrack(const art::Ptr<recob:
 bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList,art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs) 
 {
 
-  //lorena - this is only used here
   std::vector<float>  startw  = std::vector<float>{8256.,8256.,8256.};
   std::vector<float>  startt = std::vector<float>{9600.,9600.,9600.};
   std::vector<float>  endw = std::vector<float>{0.,0.,0.};
@@ -490,12 +471,6 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
 	      double xyz_shower[3] = {0.,0.,0.};
 	      showerVertex->XYZ(xyz_shower);
 	      
-	      //IMPORTANT! detached clusters proximity cut, using vertices?
-	      //Joseph - answer - I don't think we only want to check vertices
-	      // if anything I think that we want to check that all parts of the cluster
-	      // are detachted from the track, maybe if we find some minimally bounding 
-	      // polygon we can check if the muon cluster intersects it, thoughts?
-	      
 	      float dist = std::sqrt(pow(xyz_track[0]-xyz_shower[0],2)+pow(xyz_track[1]-xyz_shower[1],2)+pow(xyz_track[2]-xyz_shower[2],2));
 	      
 	      if(dist<fShowerDetached2dProximityCut){
@@ -554,13 +529,8 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
   fVertexModuleLabel = p.get<std::string>("VertexModuleLabel");
   fClusterModuleLabel = p.get<std::string>("ClusterModuleLabel");
   fTrackModuleLabel = p.get<std::string>("TrackModuleLabel");
-  //ShowerModuleLabel:          "showerrecopandora"
   
-  fPFPVertexAssnModuleLabel = p.get<std::string>("PFPVertexAssnModuleLabel");
-  fPFPClusterAssnModuleLabel = p.get<std::string>("PFPClusterAssnModuleLabel");
-  fPFPTrackAssnModuleLabel = p.get<std::string>("PFPTrackAssnModuleLabel");
   // Implementation of optional member function here.
-  
   fMuonTrackLengthCut = p.get<float>("MuonTrackLengthCut");
   fTrackVertexProximityCut = p.get<float>("TrackVertexProximityCut");
   fShowerVertex2dProximityCut = p.get<float>("ShowerVertex2dProximityCut");

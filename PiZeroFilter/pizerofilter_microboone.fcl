@@ -8,11 +8,6 @@ microboone_pizerofilter:
     VertexModuleLabel:          "pandoraNu"
     ClusterModuleLabel:         "pandoraNu"
     TrackModuleLabel:           "pandoraNu"
-    #ShowerModuleLabel:          "showerrecopandora"
-
-    PFPVertexAssnModuleLabel:   "pandoraNu"
-    PFPClusterAssnModuleLabel:  "pandoraNu"
-    PFPTrackAssnModuleLabel:    "pandoraNu"
 
     MuonTrackLengthCut: 75.
     TrackVertexProximityCut: 5.
