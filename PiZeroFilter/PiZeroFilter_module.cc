@@ -104,7 +104,7 @@ private:
 
   const int NDetachedClusters(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToClusters pfParticleToClusterMap) const;
   
-  bool BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs);
+  bool BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & TrackEnd, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs);
     
 };
 
@@ -170,6 +170,7 @@ bool PiZeroFilter::filter(art::Event & e)
 
   std::vector<ana::PiZeroROI> pizeroroi_v;
   std::vector<std::pair<int,int> > Vertex(3);
+  std::vector<std::pair<int,int> > TrackEnd(3);
   std::vector<std::pair<int,int> > TimePairs(3);
   std::vector<std::pair<int,int> > WirePairs(3);
   std::vector<std::pair<int,int> > PiZeroTimePairs(3);
@@ -256,12 +257,13 @@ bool PiZeroFilter::filter(art::Event & e)
 
 		      art::Ptr<recob::PFParticle> longestTrack = this->FindLongestTrack(particle,pfParticleList, pfParticleToTrackMap);
 
-		      if (!this->BuildROI(particle, pfParticleList, longestTrack, pfParticleToClusterMap, pfParticlesToVerticesMap,Vertex,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
+		      if (!this->BuildROI(particle, pfParticleList, longestTrack, pfParticleToClusterMap, pfParticlesToVerticesMap,Vertex,TrackEnd,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
 			continue;
 		      
 		      //store the ROI found
 		      ana::PiZeroROI pizeroroi;
 		      pizeroroi.SetVertex( Vertex );
+		      pizeroroi.SetTrackEnd( TrackEnd );
 		      pizeroroi.SetROI( WirePairs, TimePairs );
 		      pizeroroi.SetPiZeroROI(PiZeroWirePairs,PiZeroTimePairs);
 		      pizeroroiVector->emplace_back(pizeroroi);
@@ -541,7 +543,7 @@ const int PiZeroFilter::NDetachedClusters(art::Ptr<recob::PFParticle> track, art
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
-bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList,art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs) 
+bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList,art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex,std::vector<std::pair<int,int> > & TrackEnd,  std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs) 
 {
   std::vector<float>  startw  = std::vector<float>{8256.,8256.,8256.};
   std::vector<float>  startt = std::vector<float>{9600.,9600.,9600.};
@@ -562,7 +564,10 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
     for(unsigned int i = 0; i < trackClusters.size(); ++i)
       {
 	auto c_idx = trackClusters[i]->Plane().Plane;
-	Vertex[c_idx] = std::make_pair(trackClusters[i]->StartTick(),trackClusters[i]->StartWire()); //                             
+	Vertex[c_idx] = std::make_pair(trackClusters[i]->StartTick(),trackClusters[i]->StartWire());
+
+	TrackEnd[c_idx] = std::make_pair(trackClusters[i]->EndTick(),trackClusters[i]->EndWire());
+
 	startw[c_idx] = std::min(startw[c_idx],std::min(trackClusters[i]->StartWire(),trackClusters[i]->EndWire()));
 	endw[c_idx] = std::max(endw[c_idx],std::max(trackClusters[i]->StartWire(),trackClusters[i]->EndWire()));
 	startt[c_idx] = std::min(startt[c_idx],std::min(trackClusters[i]->StartTick(),trackClusters[i]->EndTick()));
