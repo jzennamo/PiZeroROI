@@ -51,9 +51,11 @@ namespace ana{
 		      const std::vector < std::pair< int, int > > PiZeroTime);
     
     void SetVertex( const std::vector< std::pair <int, int> > vtx);
+    void SetTrackEnd( const std::vector< std::pair <int, int> > trk_end);
 
     // Here are the Getters
     std::vector < std::pair <int, int > > GetVertex() const;
+    std::vector < std::pair <int, int > > GetTrackEnd() const;
     std::vector < std::pair< int, int > > GetWireROI() const;
     std::vector < std::pair< int, int > > GetTimeROI() const;
     std::vector < std::pair< int, int > > GetPiZeroWireROI() const;
@@ -68,7 +70,8 @@ namespace ana{
     std::vector < std::pair< int, int > > _pi0_wire_range; // size 3 planes, min then max
     std::vector < std::pair< int, int > > _pi0_t_range; // size 3 planes, min then max
     std::vector < std::pair <int, int > > _vtx; // size 3 plane, pair with tick, wire for vertex
-    
+    std::vector < std::pair <int, int > > _trk_end; // size 3 plane, pair with tick, wire for track-end 
+   
   };
 }
   

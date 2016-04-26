@@ -163,8 +163,11 @@ void ana::PiZeroROI::SetPiZeroROI(const std::vector < std::pair< int, int > > Pi
     return;    
   }
 
-  
+  std::cout << "\n\n\n\n\n\n\n\n\n\n\n\n \t\t :: OH HELLO THERE OLD FRIEND! \n\n "<< PiZeroWire.at(0).second    << "\n\n\n\n\n" << std::endl; 
+
+
   _pi0_wire_range = PiZeroWire;
+
   _pi0_t_range = PiZeroTime;
 }
 
@@ -184,6 +187,22 @@ _vtx = vtx;
 
 }
 
+void ana::PiZeroROI::SetTrackEnd( const std::vector< std::pair < int, int > > trk_end){
+  
+  if(trk_end.size() > 3){
+  try{ 
+    throw trk_end.size();
+  }
+  catch(int e){
+    std::cout << "Too many track-endsess, " << e << std::endl; 
+  }
+}
+
+_trk_end = trk_end;
+
+}
+
+
 std::vector < std::pair <int, int > > ana::PiZeroROI::GetVertex() const{
 
   std::vector < std::pair <int, int > > output = _vtx;
@@ -192,6 +211,13 @@ std::vector < std::pair <int, int > > ana::PiZeroROI::GetVertex() const{
 
 }
 
+std::vector < std::pair <int, int > > ana::PiZeroROI::GetTrackEnd() const{
+
+  std::vector < std::pair <int, int > > output = _trk_end;
+  
+  return output;
+  
+}
 
 std::vector < std::pair< int, int > > ana::PiZeroROI::GetWireROI() const{
 
