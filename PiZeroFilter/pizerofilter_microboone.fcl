@@ -16,7 +16,7 @@ microboone_pizerofilter:
     ShowerVertex2dProximityCut: 10.  
     ShowerDetached2dProximityCut: 5.
     UseVerticesForDetachedCut: false
-    fCheckOverlapDetachedShowers: true
+    CheckOverlapDetachedShowers: true
     MinMinDetachedShowersPerPlaneCut: 1
     MinMaxDetachedShowersPerPlaneCut: 2
     Padding: 30
