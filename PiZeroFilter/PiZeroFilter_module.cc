@@ -29,6 +29,9 @@
 #include "lardata/RecoBase/Vertex.h"
 #include "lardata/RecoBase/Track.h"
 #include "lardata/RecoBase/Cluster.h"
+#include "lardata/RecoBase/Hit.h"
+
+#include "larcore/Geometry/Geometry.h"
 
 #include "lardata/MCBase/MCShower.h"
 
@@ -61,11 +64,13 @@ private:
   std::string fVertexModuleLabel;
   std::string fClusterModuleLabel;
   std::string fTrackModuleLabel;
+  std::string fHitModuleLabel;
     
   float fMuonTrackLengthCut;
   float fTrackVertexProximityCut;
   float fShowerVertex2dProximityCut;
   float fShowerDetached2dProximityCut;
+  bool  fCheckOverlapDetachedShowers;
   bool  fUseVerticesForDetachedCut;
   float fMinMinDetachedShowersPerPlaneCut;
   float fMinMaxDetachedShowersPerPlaneCut;
@@ -102,9 +107,11 @@ private:
 
   const bool IsDetached(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap) const;
 
-  const int NDetachedClusters(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToClusters pfParticleToClusterMap) const;
+  const bool CheckOverlap(art::Ptr<recob::Cluster> trackCluster, art::Ptr<recob::Cluster> showerCluster, lar_pandora::ClustersToHits clustersToHits) const;
+
+  const int NDetachedClusters(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticleVector pfParticleList, lar_pandora::ClustersToHits clustersToHits) const;
   
-  bool BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<std::pair<int,int> > & TrackEnd, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs);
+  bool BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, lar_pandora::ClustersToHits clustersToHits, std::vector<std::pair<int,int> > & Vertex, std::vector<float> & MuonVertex, std::vector<std::pair<int,int> > & TrackEnd, std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs);
     
 };
 
@@ -175,7 +182,8 @@ bool PiZeroFilter::filter(art::Event & e)
   std::vector<std::pair<int,int> > WirePairs(3);
   std::vector<std::pair<int,int> > PiZeroTimePairs(3);
   std::vector<std::pair<int,int> > PiZeroWirePairs(3);
-
+  std::vector< float > MuonVertex(3);
+  std::vector< float > NeutrinoVertex(3);
 
   //Attempt at making an association between PFParticle and ROI
   std::unique_ptr<art::Assns<recob::PFParticle, ana::PiZeroROI> > ROI_PFP_Assn(new art::Assns<recob::PFParticle, ana::PiZeroROI>); 
@@ -189,22 +197,26 @@ bool PiZeroFilter::filter(art::Event & e)
   lar_pandora::PFParticleVector pfParticleList; //vector of PFParticles
   lar_pandora::VertexVector vertexVector; //vector of vertices
   lar_pandora::TrackVector allPfParticleTracks; //all PFParticle tracks
+  lar_pandora::ClusterVector clusterVector; //vector of clusters
   lar_pandora::PFParticlesToClusters pfParticleToClusterMap; //PFParticle-to-cluster map
   lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap; //PFParticle-to-vertex map
   lar_pandora::PFParticlesToTracks pfParticleToTrackMap; //PFParticle-to-track map
+  lar_pandora::ClustersToHits clustersToHits; //Clusters-to-hits
+  
   
   lar_pandora::LArPandoraHelper::CollectPFParticles(e, fPFPModuleLabel, pfParticleList, pfParticleToClusterMap); //collect PFParticles and map to clusters
-  lar_pandora::LArPandoraHelper::CollectVertices(e, fPFPModuleLabel, vertexVector, pfParticlesToVerticesMap); //map PFParticles-to-vertex
-  lar_pandora::LArPandoraHelper::CollectTracks(e, fPFPModuleLabel, allPfParticleTracks, pfParticleToTrackMap);//map PFParticles-to-tracks
 
   std::cout << "Number of PFParticles = "<< pfParticleList.size() << std::endl;
-
   if(pfParticleList.size()<4)
     {
       e.put( std::move(pizeroroiVector) );                                                                                              
       e.put( std::move(ROI_PFP_Assn) );                                                                                                       
       return false; 
     }
+
+  lar_pandora::LArPandoraHelper::CollectVertices(e, fPFPModuleLabel, vertexVector, pfParticlesToVerticesMap); //map PFParticles-to-vertex
+  lar_pandora::LArPandoraHelper::CollectTracks(e, fPFPModuleLabel, allPfParticleTracks, pfParticleToTrackMap);//map PFParticles-to-tracks
+  lar_pandora::LArPandoraHelper::CollectClusters(e, fPFPModuleLabel, clusterVector, clustersToHits);//map Clusters-to-hits
   
   //Added a check to have one and only one neutrino for a cleaner sample
   short nprim = 0;
@@ -244,9 +256,16 @@ bool PiZeroFilter::filter(art::Event & e)
 		      //if there is one vertex, store it
 		      art::Ptr<recob::Vertex> nuVertex = vertexVector.front();
 		      
+		      double xyz_0[3] = {0.0, 0.0, 0.0} ;
+		      nuVertex->XYZ(xyz_0);
+		      NeutrinoVertex[0] = xyz_0[0];
+		      NeutrinoVertex[1] = xyz_0[1];
+		      NeutrinoVertex[2] = xyz_0[2];
+
 		      if (!this->NeutrinoHasAtLeastOneTrackAndTwoShowers(particle,pfParticleList))
 			continue;
-
+		      
+		      
 		      const int n_close_tracks = this->GetNCloseTracks(particle, nuVertex, pfParticlesToVerticesMap,pfParticleList);
 
 		      if (fnShw > 2 || n_close_tracks > 2)
@@ -257,7 +276,7 @@ bool PiZeroFilter::filter(art::Event & e)
 
 		      art::Ptr<recob::PFParticle> longestTrack = this->FindLongestTrack(particle,pfParticleList, pfParticleToTrackMap);
 
-		      if (!this->BuildROI(particle, pfParticleList, longestTrack, pfParticleToClusterMap, pfParticlesToVerticesMap,Vertex,TrackEnd,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
+		      if (!this->BuildROI(particle, pfParticleList, longestTrack, pfParticleToClusterMap, pfParticlesToVerticesMap,clustersToHits, Vertex, MuonVertex,TrackEnd,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
 			continue;
 		      
 		      //store the ROI found
@@ -266,9 +285,10 @@ bool PiZeroFilter::filter(art::Event & e)
 		      pizeroroi.SetTrackEnd( TrackEnd );
 		      pizeroroi.SetROI( WirePairs, TimePairs );
 		      pizeroroi.SetPiZeroROI(PiZeroWirePairs,PiZeroTimePairs);
+		      pizeroroi.SetMuonVertex(MuonVertex);
+		      pizeroroi.SetNeutrinoVertex(NeutrinoVertex);
 		      pizeroroiVector->emplace_back(pizeroroi);
 		      
-
 		      if (!util::CreateAssn(*this, e, *pizeroroiVector, particle, *ROI_PFP_Assn))
 			{
 			  throw art::Exception(art::errors::InsertFailure)
@@ -508,31 +528,103 @@ const bool PiZeroFilter::IsDetached(art::Ptr<recob::PFParticle> track, art::Ptr<
 
 //------------------------------------  
 
-const int PiZeroFilter::NDetachedClusters(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToClusters pfParticleToClusterMap) const
+const bool PiZeroFilter::CheckOverlap(art::Ptr<recob::Cluster> trackCluster, art::Ptr<recob::Cluster> showerCluster, lar_pandora::ClustersToHits clustersToHits) const
 {
 
+  std::map< geo::WireID, std::pair<double,double>> tick_range_perWire;
+  
+  //loop over hits in the shower cluster to store min and max ticks per wire ID 
+  lar_pandora::ClustersToHits::const_iterator showerClustersHitsMapIter = clustersToHits.find(showerCluster);
+  if(showerClustersHitsMapIter != clustersToHits.end()){
+    const lar_pandora::HitVector hits = showerClustersHitsMapIter->second;
+  
+    for(unsigned int i = 0; i < hits.size(); i++)
+      {
+	const art::Ptr<recob::Hit> hit(hits[i]);
+	//	double hit_Time = hits[i]->PeakTime();
+	const double hit_Time(hit->PeakTime());
+	//	art::Ptr<geo::WireID> wire = hits[i]->WireID();
+	const geo::WireID wire(hit->WireID());
+	
+	std::map<geo::WireID, std::pair<double,double>>::iterator iter = tick_range_perWire.find(wire);
+	
+	if (iter == tick_range_perWire.end())
+	  {
+	    std::pair<double,double> range = std::make_pair(hit_Time, hit_Time);
+	    tick_range_perWire[wire] = range;
+	  }
+	else
+	  {
+	    if(hit_Time > iter->second.second)
+	      iter->second.second = hit_Time;
+	    if(hit_Time < iter->second.first)
+	      iter->second.first = hit_Time;
+	  }
+	
+      }
+  }
+  
+  //loop over hits in the track cluster
+  //if(wire_track=...) .find(wire_track)
+  lar_pandora::ClustersToHits::const_iterator trackClustersHitsMapIter = clustersToHits.find(trackCluster);
+  if(trackClustersHitsMapIter != clustersToHits.end())
+    {
+      const lar_pandora::HitVector hits = trackClustersHitsMapIter->second;
+        for(unsigned int i = 0; i < hits.size(); i++)
+	{
+	  const art::Ptr<recob::Hit> hit(hits[i]);
+	  double time = hit->PeakTime();
+	  geo::WireID wire = hit->WireID();
+	  std::map<geo::WireID, std::pair<double,double>>::iterator iter = tick_range_perWire.find(wire);
+	  
+	  if (iter != tick_range_perWire.end())
+	    {
+	      if((time<=iter->second.second) &&
+		 (time>=iter->second.first))
+		return true;
+	      
+	      else	
+		return false;
+	      
+	    }
+	  
+	}
+	
+    }
+  
+  return false;
+}
+ 
+//------------------------------------  
+const int PiZeroFilter::NDetachedClusters(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticleVector pfParticleList, lar_pandora::ClustersToHits clustersToHits) const
+{
   int detachedclusters = 0;
   
   lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(track);
   if (clusterMapIter != pfParticleToClusterMap.end()) {
     lar_pandora::ClusterVector trackClusters = clusterMapIter->second;
-    
     for(unsigned int i = 0; i < trackClusters.size(); ++i)
       {
 	auto c_idx = trackClusters[i]->Plane().Plane;
-	trackClusters[i];
-	
+		
 	lar_pandora::PFParticlesToClusters::const_iterator showerClusterMapIter = pfParticleToClusterMap.find(shower);
 	if (showerClusterMapIter != pfParticleToClusterMap.end()) {
 	  lar_pandora::ClusterVector showerClusters = showerClusterMapIter->second;
-
 	  for(unsigned int j = 0; j < showerClusters.size(); ++j)
 	    {
 	      auto c_jdx = showerClusters[j]->Plane().Plane;
 	      if(c_idx==c_jdx)
 		{
-		  if(this->DetachedSegments(trackClusters[i]->StartTick(),trackClusters[i]->EndTick(),trackClusters[i]->StartWire(), trackClusters[i]->EndWire(), showerClusters[j]->StartTick(),showerClusters[j]->EndTick(),showerClusters[j]->StartWire(),showerClusters[j]->EndWire()))
-		    ++detachedclusters;		  
+		  if(fCheckOverlapDetachedShowers)
+		    {
+		      if(!this->CheckOverlap(trackClusters[i], showerClusters[j], clustersToHits))
+			++detachedclusters;		  
+		    }
+		  else
+		    {
+		      if(this->DetachedSegments(trackClusters[i]->StartTick(),trackClusters[i]->EndTick(),trackClusters[i]->StartWire(), trackClusters[i]->EndWire(), showerClusters[j]->StartTick(),showerClusters[j]->EndTick(),showerClusters[j]->StartWire(),showerClusters[j]->EndWire()))
+			++detachedclusters;		  
+		    }
 		} 
 	    }
 	}
@@ -543,7 +635,7 @@ const int PiZeroFilter::NDetachedClusters(art::Ptr<recob::PFParticle> track, art
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
-bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList,art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex,std::vector<std::pair<int,int> > & TrackEnd,  std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs) 
+bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList,art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, lar_pandora::ClustersToHits clustersToHits, std::vector<std::pair<int,int> > & Vertex, std::vector<float> & MuonVertex, std::vector<std::pair<int,int> > & TrackEnd,  std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs) 
 {
   std::vector<float>  startw  = std::vector<float>{8256.,8256.,8256.};
   std::vector<float>  startt = std::vector<float>{9600.,9600.,9600.};
@@ -557,10 +649,26 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
 
   
   // 1 - fill with longest track info
+  lar_pandora::PFParticlesToVertices::const_iterator trackVertexMapIter = pfParticlesToVerticesMap.find(longestTrack);
+  
+  if (trackVertexMapIter == pfParticlesToVerticesMap.end())
+    std::cerr << "Warning: No vertex found for the longest track!" << std::endl;
+  
+  lar_pandora::VertexVector trackVertices = trackVertexMapIter->second;
+  if (trackVertices.size() > 1)
+    std::cerr << "Warning: more than one vertex found for the longest track!" << std::endl;
+
+  art::Ptr<recob::Vertex> trackVertex = trackVertices.front();
+  double xyz_0[3] = {0.0, 0.0, 0.0} ;
+  trackVertex->XYZ(xyz_0);
+  MuonVertex[0]= xyz_0[0];
+  MuonVertex[1]= xyz_0[1];
+  MuonVertex[2]= xyz_0[2];
+  
   lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(longestTrack); 
   if (clusterMapIter != pfParticleToClusterMap.end()) {
     lar_pandora::ClusterVector trackClusters = clusterMapIter->second;
-
+    
     for(unsigned int i = 0; i < trackClusters.size(); ++i)
       {
 	auto c_idx = trackClusters[i]->Plane().Plane;
@@ -587,6 +695,7 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
       if(lar_pandora::LArPandoraHelper::IsShower(daughter)) // loop over showers
         {
 	  bool detachment = false;
+
 	  if(fUseVerticesForDetachedCut){
 	    if(this->IsDetached(longestTrack,daughter,pfParticlesToVerticesMap))
 	      {
@@ -596,7 +705,8 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
 	  }
 	  else
 	    {
-	      int detached_clusters = this->NDetachedClusters(longestTrack,daughter,pfParticleToClusterMap);
+	      int detached_clusters = this->NDetachedClusters(longestTrack,daughter,pfParticleToClusterMap,pfParticleList,clustersToHits);
+
 	      if(detached_clusters>=2) n_detached_showers_2views++;
 	      if(detached_clusters>2) n_detached_showers_3views++;
 	      if(detached_clusters>0)
@@ -660,6 +770,7 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
   fVertexModuleLabel = p.get<std::string>("VertexModuleLabel");
   fClusterModuleLabel = p.get<std::string>("ClusterModuleLabel");
   fTrackModuleLabel = p.get<std::string>("TrackModuleLabel");
+  fHitModuleLabel = p.get<std::string>("HitModuleLabel");
   
   // Implementation of optional member function here.
   fMuonTrackLengthCut = p.get<float>("MuonTrackLengthCut");
@@ -667,6 +778,7 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
   fShowerVertex2dProximityCut = p.get<float>("ShowerVertex2dProximityCut");
   fShowerDetached2dProximityCut = p.get<float>("ShowerDetached2dProximityCut");
   fUseVerticesForDetachedCut = p.get<bool>("UseVerticesForDetachedCut");
+  fCheckOverlapDetachedShowers = p.get<bool>("CheckOverlapDetachedShowers");
   fMinMinDetachedShowersPerPlaneCut = p.get<int>("MinMinDetachedShowersPerPlaneCut");
   fMinMaxDetachedShowersPerPlaneCut = p.get<int>("MinMaxDetachedShowersPerPlaneCut");
   fPadding = p.get<float>("Padding");
