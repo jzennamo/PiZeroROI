@@ -1002,29 +1002,6 @@ const float PiZeroFilter::GetClosestDistance(art::Ptr<recob::Cluster> showerClus
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------------------------------  
-/*bool PiZeroFilter::GetIntersection(const CartesianVector &a1, const CartesianVector &a2, const CartesianVector &b1,const CartesianVector &b2, CartesianVector &intersectPosition, float &firstDisplacement, float &secondDisplacement)
-{
-  //Method from Pandora: LArContent/LArPointingClusterHelper
-  // note: input lines are r = a1 + P * a2 and r = b1 + Q * b2
-  const float cosTheta = a2.GetDotProduct(b2);
-
-  // lines must be non-parallel
-  if (1.f - std::fabs(cosTheta) < std::numeric_limits<float>::epsilon())
-    return false;
-
-  // calculate the intersection (by minimising the distance between the lines)
-  const float P = ((a2 - b2 * cosTheta).GetDotProduct(b1 - a1)) / (1.f - cosTheta * cosTheta);
-  const float Q = ((a2 * cosTheta - b2).GetDotProduct(b1 - a1)) / (1.f - cosTheta * cosTheta);
-
-  // position of intersection (or point of closest approach)
-  intersectPosition = (a1 + a2 * P + b1 + b2 * Q) * 0.5f;
-
-  // displacements of intersection from input vertices
-  firstDisplacement = P;
-  secondDisplacement = Q;
-  }*/
-
-//---------------------------------------------------------------------------------------------------------------------------------------------------------  
 const int PiZeroFilter::NDetachedClusters(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticleVector pfParticleList, lar_pandora::ClustersToHits clustersToHits) const
 {
   const detinfo::DetectorProperties* detprop = lar::providerFrom<detinfo::DetectorPropertiesService>();
