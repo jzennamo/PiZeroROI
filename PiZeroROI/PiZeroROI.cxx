@@ -175,8 +175,6 @@ void ana::PiZeroROI::SetPiZeroROI(const std::vector < std::pair< int, int > > Pi
 void ana::PiZeroROI::SetVertex( const std::vector< std::pair < int, int > > vtx)
 {
 
-  std::cout << " Setting the vertex! " << std::endl;
-  
   if(vtx.size() > 3){
   try{ 
     throw vtx.size();
@@ -193,14 +191,12 @@ _vtx = vtx;
 void ana::PiZeroROI::SetMuonVertex( const std::vector< float > vtx)
 {
 
-  std::cout << "I am setting the muon vertex!" << std::endl;
   _muon_vtx = vtx;
 
 }
 
 void ana::PiZeroROI::SetNeutrinoVertex( const std::vector<float > vtx)
 {
-  std::cout << "I am setting the neutrino vertex!" << std::endl;
   _nu_vtx = vtx;
 
 }
@@ -223,9 +219,6 @@ _trk_end = trk_end;
 
 std::vector < float > ana::PiZeroROI::GetMuonVertex() const{
 
-  //  TVector3 * output = _muon_vtx;
-  std::cout << "Do you want the muon vertex?" << std::endl;
-
   std::vector < float > output = _muon_vtx;
 
   return output;
@@ -233,9 +226,6 @@ std::vector < float > ana::PiZeroROI::GetMuonVertex() const{
 }
 
 std::vector < float > ana::PiZeroROI::GetNeutrinoVertex() const{
-
-  //  TVector3 * output = *_nu_vtx;
-  std::cout << "Do you want the neutrino vertex?" << std::endl;
 
   std::vector < float > output = _nu_vtx;
 

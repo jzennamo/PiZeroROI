@@ -8,17 +8,25 @@ microboone_pizerofilter:
     VertexModuleLabel:          "pandoraNu"
     ClusterModuleLabel:         "pandoraNu"
     TrackModuleLabel:           "pandoraNu"
-
-    HitModuleLabel:             "pandoraCosmicKHitRemoval"
+    PFPModuleLabelCosmic:       "pandoraCosmic"
 
     MuonTrackLengthCut: 75.
+    ShowerLengthCut: 3.
     TrackVertexProximityCut: 5.
+    CosmicTrackVertexProximityCut: 5.
     ShowerVertex2dProximityCut: 10.  
     ShowerDetached2dProximityCut: 5.
+    MinDistanceAnyCluster: 0.5
+    UseShowerLengthCut: true
     UseVerticesForDetachedCut: false
+    UseCheckCosmicOverlap: false	      
     CheckOverlapDetachedShowers: true
-    MinMinDetachedShowersPerPlaneCut: 1
-    MinMaxDetachedShowersPerPlaneCut: 2
+    RejectMoreThanOneRecoNeutrino: false
+    MaxNeutrinoShowers: 2
+    MaxCloseTracks: 2
+    MaxCosmicTracks: 2
+    MinDetachedShowersIn2Views: 2
+    MinDetachedShowersIn3Views: 1	
     Padding: 30
 }
 
