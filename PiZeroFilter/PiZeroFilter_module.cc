@@ -1257,12 +1257,12 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
     }
   
   for(int i = 0; i<3; ++i) {
-    TimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+startt[i]),
-				  std::min(9600.0,double(fPadding)+endt[i]));
+    TimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding*6)+startt[i]),
+				  std::min(9600.0,double(fPadding*6)+endt[i]));
     WirePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+startw[i]),
 				  std::min(8256.0,double(fPadding)+endw[i]));
-    PiZeroTimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+pi0startt[i]),
-					std::min(9600.0,double(fPadding)+pi0endt[i]));
+    PiZeroTimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding*6)+pi0startt[i]),
+					std::min(9600.0,double(fPadding*6)+pi0endt[i]));
     PiZeroWirePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+pi0startw[i]),
 					std::min(8256.0,double(fPadding)+pi0endw[i]));
     
