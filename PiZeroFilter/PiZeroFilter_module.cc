@@ -3,7 +3,6 @@
 // Module Type: filter
 // File:        PiZeroFilter_module.cc
 //
-// Version by Lorena and John 
 // from cetpkgsupport v1_10_01.
 ////////////////////////////////////////////////////////////////////////
 
@@ -74,6 +73,8 @@ private:
   std::string fVertexModuleLabel;
   std::string fClusterModuleLabel;
   std::string fTrackModuleLabel;
+  std::string fCCInclusiveModuleLabel;
+
     
   float fMuonTrackLengthCut;
   float fShowerLengthCut;
@@ -117,15 +118,11 @@ private:
   int fnMCNuMuCC;
   int fMCPdg;
 
-  const bool NeutrinoHasAtLeastOneTrackAndTwoShowers(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList);
+  const bool NeutrinoHasAtLeastTwoShowers(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList);
 
   const int GetNCloseTracks(const art::Ptr<recob::PFParticle> particle, art::Ptr<recob::Vertex> nuVertex, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const;
 
   const int GetNCloseCosmics(art::Ptr<recob::Vertex> nuVertex, lar_pandora::PFParticleVector pfParticleListCosmic, lar_pandora::PFParticlesToTracks pfParticleToTrackMapCosmic) const;
-
-  const bool IsThereALongTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const;  
-
-  const art::Ptr<recob::PFParticle> FindLongestTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const;
 
   const int NDetachedClusters(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticleVector pfParticleList, lar_pandora::ClustersToHits clustersToHits) const;
 
@@ -217,6 +214,7 @@ bool PiZeroFilter::filter(art::Event & e)
   std::vector<std::pair<int,int> > WirePairs(3);
   std::vector<std::pair<int,int> > PiZeroTimePairs(3);
   std::vector<std::pair<int,int> > PiZeroWirePairs(3);
+  std::vector< float > CCIncVertex(3);
   std::vector< float > MuonVertex(3);
   std::vector< float > NeutrinoVertex(3);
 
@@ -270,15 +268,60 @@ bool PiZeroFilter::filter(art::Event & e)
   lar_pandora::LArPandoraHelper::CollectTracks(e, fPFPModuleLabelCosmic, allPfParticleTracksCosmic, pfTracksToHitsMapCosmic);
   lar_pandora::LArPandoraHelper::CollectClusters(e, fPFPModuleLabelCosmic, clusterVectorCosmic, clustersToHitsCosmic);
 
+  //get the output from CC inclusive filter
+  art::Handle<art::Assns<recob::Vertex, recob::Track>> vtxTrackAssnsHandle;
+  e.getByLabel( fCCInclusiveModuleLabel, vtxTrackAssnsHandle);
+
+  unsigned int muonID = -1;
+  unsigned int nuID = -1;
+  
+  if (!vtxTrackAssnsHandle.isValid()) 
+    //throw std::exception();
+    {
+      e.put( std::move(pizeroroiVector) );
+      e.put( std::move(ROI_PFP_Assn) );                                                                                                     
+      return false;
+    }
+    
+  const art::Assns<recob::Vertex, recob::Track>& vtxTrackAssns = *vtxTrackAssnsHandle;
+
+  if(vtxTrackAssns.size()!=1)
+    std::cerr << "Error, more than one vertex associated from CC inclusive filter" << std::endl;
+
+  for(size_t idx = 0; idx < vtxTrackAssns.size(); idx++)
+    {
+      const art::Ptr<recob::Vertex>& vertex = vtxTrackAssns.at(idx).first;
+      const art::Ptr<recob::Track>&  track  = vtxTrackAssns.at(idx).second;
+
+      muonID = track.key(); //checked this is the correct PFParticle ID in the list from PandoraNu
+
+      double xyz_0[3] = {0.0, 0.0, 0.0} ;
+      vertex->XYZ(xyz_0);
+      CCIncVertex[0]= xyz_0[0];
+      CCIncVertex[1]= xyz_0[1];
+      CCIncVertex[2]= xyz_0[2];      
+    }
+
+  
   //Added a check to have one and only one neutrino for a cleaner sample
   short nprim = 0;
   for (unsigned int n = 0; n < pfParticleList.size(); ++n)
     {
       const art::Ptr<recob::PFParticle> particle = pfParticleList.at(n);
       if (particle->IsPrimary() && lar_pandora::LArPandoraHelper::IsNeutrino(particle))
-	nprim++;
+	{
+	  nprim++;
+	  //check if the muon selected by the CC inclusive filter is its daughter
+	  const std::vector<size_t> &daughterIDs = particle->Daughters();
+	  for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters                                              
+	    {
+	      if(muonID == daughterIDs[j])
+		nuID = n;
+	    }
+	}
     }
-
+  
+  
   // Reject event if more than one neutrino reconstructed
   if(fRejectMoreThanOneRecoNeutrino)
     {
@@ -292,95 +335,118 @@ bool PiZeroFilter::filter(art::Event & e)
     }
   
   
-
-  //Big filter loop starts here...
-  for (unsigned int n = 0; n < pfParticleList.size(); ++n)
+  
+  //No need for a big loop over all PFParticles now, we know the neutrino ID 
+  
+  const art::Ptr<recob::PFParticle> particle = pfParticleList.at(nuID);	  
+  
+  lar_pandora::PFParticlesToVertices::const_iterator vIter = pfParticlesToVerticesMap.find(particle);
+  
+  if (pfParticlesToVerticesMap.end() != vIter)
     {
-     const art::Ptr<recob::PFParticle> particle = pfParticleList.at(n);	  
+      const lar_pandora::VertexVector &vertexVector = vIter->second;
       
-      if (particle->IsPrimary() && lar_pandora::LArPandoraHelper::IsNeutrino(particle))
-        { 
-	  //Select only if Primary PFParticle is a neutrino
-	  //get neutrino vertex
-	  lar_pandora::PFParticlesToVertices::const_iterator vIter = pfParticlesToVerticesMap.find(particle);
-	  if (pfParticlesToVerticesMap.end() != vIter)
-            {
-	      const lar_pandora::VertexVector &vertexVector = vIter->second;
+      if (!vertexVector.empty())
+	{
+	  if (vertexVector.size() == 1)
+	    {
+	      //if there is one vertex, store it
+	      art::Ptr<recob::Vertex> nuVertex = vertexVector.front();
 	      
-	      if (!vertexVector.empty())
-                {
-		  if (vertexVector.size() == 1)
-                    {
-		      //if there is one vertex, store it
-		      art::Ptr<recob::Vertex> nuVertex = vertexVector.front();
-		      
-		      double xyz_0[3] = {0.0, 0.0, 0.0} ;
-		      nuVertex->XYZ(xyz_0);
-		      NeutrinoVertex[0] = xyz_0[0];
-		      NeutrinoVertex[1] = xyz_0[1];
-		      NeutrinoVertex[2] = xyz_0[2];
+	      double xyz_0[3] = {0.0, 0.0, 0.0} ;
+	      nuVertex->XYZ(xyz_0);
+	      NeutrinoVertex[0] = xyz_0[0];
+	      NeutrinoVertex[1] = xyz_0[1];
+	      NeutrinoVertex[2] = xyz_0[2];
+	      
+	      if (!this->NeutrinoHasAtLeastTwoShowers(particle,pfParticleList))
+		{
+		  e.put( std::move(pizeroroiVector) );
+		  e.put( std::move(ROI_PFP_Assn) );
 
-		      if (!this->NeutrinoHasAtLeastOneTrackAndTwoShowers(particle,pfParticleList))
-			continue;
-		      
-		      const int n_close_tracks = this->GetNCloseTracks(particle, nuVertex, pfParticleList,pfParticleToTrackMap);
+		  return false;
+		}
+	      
+	      const int n_close_tracks = this->GetNCloseTracks(particle, nuVertex, pfParticleList,pfParticleToTrackMap);
+	      
+	      if (fnShw > fMaxNeutrinoShowers || n_close_tracks > fMaxCloseTracks)
+		{
+		  e.put( std::move(pizeroroiVector) );
+		  e.put( std::move(ROI_PFP_Assn) );
+		  
+		  return false;
+		}
+	      
+	      const int n_close_cosmics = this->GetNCloseCosmics(nuVertex, pfParticleListCosmic, pfParticleToTrackMapCosmic);
+	      
+	      if (n_close_cosmics > fMaxCosmicTracks)
+		{
+		  e.put( std::move(pizeroroiVector) );
+		  e.put( std::move(ROI_PFP_Assn) );
 
-		      if (fnShw > fMaxNeutrinoShowers || n_close_tracks > fMaxCloseTracks)
-			continue;
+		  return false;
+		}
+	      
+	      //"longest track" (aka muon candidate) comes now from the CC inclusive filter 
+	      art::Ptr<recob::PFParticle> longestTrack = pfParticleList.at(muonID); 
+	      
+	      std::vector<size_t> showerIDs;
+	      
+	      if(!this->CheckShowers(particle, longestTrack, pfParticleList, pfParticleListCosmic,pfParticleToClusterMap, pfParticleToClusterMapCosmic, pfParticlesToVerticesMap, clustersToHits,clustersToHitsCosmic, showerIDs))
+		{
+		  e.put( std::move(pizeroroiVector) );
+		  e.put( std::move(ROI_PFP_Assn) );
 
-		      const int n_close_cosmics = this->GetNCloseCosmics(nuVertex, pfParticleListCosmic, pfParticleToTrackMapCosmic);
-		      
-		      if (n_close_cosmics > fMaxCosmicTracks)
-			continue;
+		  return false;
+		}
+	      
+	      if(fUseCheckCosmicOverlap)
+		{
+		  if(this->CheckCosmicOverlap(pfParticleList, pfParticleListCosmic, particle, pfParticleToClusterMap, pfParticleToClusterMapCosmic,clustersToHits, clustersToHitsCosmic))
+		    {
+		      e.put( std::move(pizeroroiVector) );
+		      e.put( std::move(ROI_PFP_Assn) );
 
-		      if (!this->IsThereALongTrack(particle,pfParticleList, pfParticleToTrackMap))
-			continue;
-		      
-		      art::Ptr<recob::PFParticle> longestTrack = this->FindLongestTrack(particle,pfParticleList, pfParticleToTrackMap);
+		      return false;
+		    }
+		}
+	      
+	      if (!this->BuildROI(particle, pfParticleList, longestTrack, showerIDs, pfParticleToClusterMap, pfParticlesToVerticesMap, Vertex, MuonVertex,TrackEnd,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
+		{
+		  e.put( std::move(pizeroroiVector) );
+		  e.put( std::move(ROI_PFP_Assn) );
 
-		      std::vector<size_t> showerIDs;
-		      
-		      if(!this->CheckShowers(particle, longestTrack, pfParticleList, pfParticleListCosmic,pfParticleToClusterMap, pfParticleToClusterMapCosmic, pfParticlesToVerticesMap, clustersToHits,clustersToHitsCosmic, showerIDs))
-			continue;
-
-		      if(fUseCheckCosmicOverlap)
-			{
-			  if(this->CheckCosmicOverlap(pfParticleList, pfParticleListCosmic, particle, pfParticleToClusterMap, pfParticleToClusterMapCosmic,clustersToHits, clustersToHitsCosmic))
-			    continue;
-			}
-
-		      if (!this->BuildROI(particle, pfParticleList, longestTrack, showerIDs, pfParticleToClusterMap, pfParticlesToVerticesMap, Vertex, MuonVertex,TrackEnd,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
-			continue;
-		      
-		      //store the ROI found
-		      ana::PiZeroROI pizeroroi;
-		      pizeroroi.SetVertex( Vertex );
-		      pizeroroi.SetTrackEnd( TrackEnd );
-		      pizeroroi.SetROI( WirePairs, TimePairs );
-		      pizeroroi.SetPiZeroROI(PiZeroWirePairs,PiZeroTimePairs);
-		      pizeroroi.SetMuonVertex(MuonVertex);
-		      pizeroroi.SetNeutrinoVertex(NeutrinoVertex);
-		      pizeroroiVector->emplace_back(pizeroroi);
-		      
-		      if (!util::CreateAssn(*this, e, *pizeroroiVector, particle, *ROI_PFP_Assn))
-			{
-			  throw art::Exception(art::errors::InsertFailure)
-			    << "Can't associate";
-			}
-		      
-		      pass = true;
-                    }//if there is one vertex
-                }//
-            }//vertex ok        
-        }//particle is prinary and neutrino
-    }//loop particle list
+		  return false;
+		}
+	      
+	      //store the ROI found
+	      ana::PiZeroROI pizeroroi;
+	      pizeroroi.SetVertex( Vertex );
+	      pizeroroi.SetTrackEnd( TrackEnd );
+	      pizeroroi.SetROI( WirePairs, TimePairs );
+	      pizeroroi.SetPiZeroROI(PiZeroWirePairs,PiZeroTimePairs);
+	      pizeroroi.SetCCIncVertex(CCIncVertex);
+	      pizeroroi.SetMuonVertex(MuonVertex);
+	      pizeroroi.SetNeutrinoVertex(NeutrinoVertex);
+	      pizeroroiVector->emplace_back(pizeroroi);
+	      
+	      if (!util::CreateAssn(*this, e, *pizeroroiVector, particle, *ROI_PFP_Assn))
+		{
+		  throw art::Exception(art::errors::InsertFailure)
+		    << "Can't associate";
+		}
+	      
+	      pass = true;
+	    }//if there is one vertex
+	}//
+    }//vertex ok        
   
   e.put( std::move(pizeroroiVector) );
   e.put( std::move(ROI_PFP_Assn) );
-
+  
   return pass;
-}//end filter 
-
+    }//end filter 
+  
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 const bool PiZeroFilter::CheckCosmicOverlap(lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticleVector pfParticleListCosmic, const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToClusters pfParticleToClusterMapCosmic, lar_pandora::ClustersToHits clustersToHits, lar_pandora::ClustersToHits clustersToHitsCosmic) const
@@ -470,23 +536,19 @@ const bool PiZeroFilter::CheckCosmicOverlap(lar_pandora::PFParticleVector pfPart
 //------------------------------------------------------------------------------------------------------------------------------------------
 
 //this could be more generic CheckNTracksAndShowers and minimum could be parameter in .xml
-const bool PiZeroFilter::NeutrinoHasAtLeastOneTrackAndTwoShowers(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList)
+const bool PiZeroFilter::NeutrinoHasAtLeastTwoShowers(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList)
 {
-  unsigned int n_tracks = 0, n_showers = 0;
+  unsigned int n_showers = 0;
   const std::vector<size_t> &daughterIDs = particle->Daughters();
 
   for (size_t j = 0; j < daughterIDs.size(); ++j)
     {
-      if (lar_pandora::LArPandoraHelper::IsTrack(pfParticleList.at(daughterIDs[j]))) ++n_tracks;
-      else if (lar_pandora::LArPandoraHelper::IsShower(pfParticleList.at(daughterIDs[j]))) ++n_showers;
+      if (lar_pandora::LArPandoraHelper::IsShower(pfParticleList.at(daughterIDs[j]))) 
+	++n_showers;
     }
   
   fnShw = n_showers;
-  fnTrk = n_tracks;
-  fnNuMuCC = (n_tracks>=1)&&(n_showers>=2);
-  fallEventTree->Fill();
-  
-  return ((n_tracks>=1) && (n_showers>=2)); 
+  return (n_showers>=2); 
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -535,14 +597,11 @@ const int PiZeroFilter::GetNCloseTracks(const art::Ptr<recob::PFParticle> partic
   nuVertex->XYZ(xyz_p);//vertex of the neutrino primary particle in XYZ form
   TVector3 nuVtx(xyz_p[0],xyz_p[1],xyz_p[2]);
   
-  const std::vector<size_t> &daughterIDs = particle->Daughters();
-  
-  for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters
+  for (unsigned int n = 0; n < pfParticleList.size(); ++n)
     {
-      
-      const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
+      const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(n));
       if(lar_pandora::LArPandoraHelper::IsTrack(daughter))
-        {
+	{
 	  lar_pandora::PFParticlesToTracks::const_iterator trackMapIter = pfParticleToTrackMap.find(daughter);
 	  if (trackMapIter != pfParticleToTrackMap.end()) 
 	    {
@@ -565,82 +624,6 @@ const int PiZeroFilter::GetNCloseTracks(const art::Ptr<recob::PFParticle> partic
     }
   
   return close_tracks;
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------
-
-const bool PiZeroFilter::IsThereALongTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const
-{
-  const std::vector<size_t> &daughterIDs = particle->Daughters();
-  
-  for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters                                                           
-    {
-
-      const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
-      
-      if (lar_pandora::LArPandoraHelper::IsTrack(daughter)) // loop over tracks
-        {
-
-	  lar_pandora::PFParticlesToTracks::const_iterator trackMapIter = pfParticleToTrackMap.find(daughter);
-	  if (trackMapIter != pfParticleToTrackMap.end()) {
-
-	    const lar_pandora::TrackVector &pfParticleTracks = trackMapIter->second;
-
-	    if (pfParticleTracks.size() > 1)
-	      std::cerr << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
-	    if (pfParticleTracks.size() > 0)
-	      {
-		art::Ptr<recob::Track> daughterTrack = pfParticleTracks.front();
-		const float trkl = (daughterTrack->Vertex()-daughterTrack->End()).Mag();
-
-		if(trkl>fMuonTrackLengthCut)
-		  return true;
-	      }
-	  }
-	}
-    }
-  return false;
-}
-
-//------------------------------------------------------------------------------------------------------------------------------------------
-
-const art::Ptr<recob::PFParticle> PiZeroFilter::FindLongestTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const
-{
-  float max_trkl = -std::numeric_limits<float>::max(); 
-  size_t longest_trk_idx = static_cast<size_t>(-1);//(size_t)-999;
-
-  const std::vector<size_t> &daughterIDs = particle->Daughters();
-  
-  for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters                                                                  
-    {
-      const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
-      
-      if (lar_pandora::LArPandoraHelper::IsTrack(daughter)) // loop over tracks
-        {
-
-	  lar_pandora::PFParticlesToTracks::const_iterator trackMapIter = pfParticleToTrackMap.find(daughter);
-          if (trackMapIter != pfParticleToTrackMap.end()) 
-	    {
-	      
-	      const lar_pandora::TrackVector &pfParticleTracks = trackMapIter->second;
-	      if (pfParticleTracks.size() > 1)
-		std::cerr << "Warning: there was more than one track found for daughter particle with ID " << pfParticleList.at(daughterIDs[j]) << std::endl;
-	      if (pfParticleTracks.size() > 0)
-		{
-		  art::Ptr<recob::Track> daughterTrack = pfParticleTracks.front();
-		  const float trkl = (daughterTrack->Vertex()-daughterTrack->End()).Mag();
-		  
-		  if((trkl>fMuonTrackLengthCut)&& (trkl>max_trkl)){
-		    //if longest so far                                                                                                      
-		    max_trkl = trkl;
-		    longest_trk_idx = pfParticleList.at(daughterIDs[j])->Self(); 
-		  }
-		}
-	    }
-        }
-    }
-  
-  return pfParticleList.at(longest_trk_idx);
 }
 
 //-----------------------------------------------------------------------------------------------------------------------------------------
@@ -1002,6 +985,29 @@ const float PiZeroFilter::GetClosestDistance(art::Ptr<recob::Cluster> showerClus
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------------------------------  
+/*bool PiZeroFilter::GetIntersection(const CartesianVector &a1, const CartesianVector &a2, const CartesianVector &b1,const CartesianVector &b2, CartesianVector &intersectPosition, float &firstDisplacement, float &secondDisplacement)
+{
+  //Method from Pandora: LArContent/LArPointingClusterHelper
+  // note: input lines are r = a1 + P * a2 and r = b1 + Q * b2
+  const float cosTheta = a2.GetDotProduct(b2);
+
+  // lines must be non-parallel
+  if (1.f - std::fabs(cosTheta) < std::numeric_limits<float>::epsilon())
+    return false;
+
+  // calculate the intersection (by minimising the distance between the lines)
+  const float P = ((a2 - b2 * cosTheta).GetDotProduct(b1 - a1)) / (1.f - cosTheta * cosTheta);
+  const float Q = ((a2 * cosTheta - b2).GetDotProduct(b1 - a1)) / (1.f - cosTheta * cosTheta);
+
+  // position of intersection (or point of closest approach)
+  intersectPosition = (a1 + a2 * P + b1 + b2 * Q) * 0.5f;
+
+  // displacements of intersection from input vertices
+  firstDisplacement = P;
+  secondDisplacement = Q;
+  }*/
+
+//---------------------------------------------------------------------------------------------------------------------------------------------------------  
 const int PiZeroFilter::NDetachedClusters(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticleVector pfParticleList, lar_pandora::ClustersToHits clustersToHits) const
 {
   const detinfo::DetectorProperties* detprop = lar::providerFrom<detinfo::DetectorPropertiesService>();
@@ -1257,12 +1263,12 @@ bool PiZeroFilter::BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pand
     }
   
   for(int i = 0; i<3; ++i) {
-    TimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding*6)+startt[i]),
-				  std::min(9600.0,double(fPadding*6)+endt[i]));
+    TimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+startt[i]),
+				  std::min(9600.0,double(fPadding)+endt[i]));
     WirePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+startw[i]),
 				  std::min(8256.0,double(fPadding)+endw[i]));
-    PiZeroTimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding*6)+pi0startt[i]),
-					std::min(9600.0,double(fPadding*6)+pi0endt[i]));
+    PiZeroTimePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+pi0startt[i]),
+					std::min(9600.0,double(fPadding)+pi0endt[i]));
     PiZeroWirePairs[i] = std::make_pair(std::max(0.,double(-1*fPadding)+pi0startw[i]),
 					std::min(8256.0,double(fPadding)+pi0endw[i]));
     
@@ -1281,7 +1287,8 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
   fVertexModuleLabel = p.get<std::string>("VertexModuleLabel");
   fClusterModuleLabel = p.get<std::string>("ClusterModuleLabel");
   fTrackModuleLabel = p.get<std::string>("TrackModuleLabel");
-  
+  fCCInclusiveModuleLabel = p.get<std::string>("CCInclusiveModuleLabel");
+
   // Implementation of optional member function here.
   fMuonTrackLengthCut = p.get<float>("MuonTrackLengthCut");
   fShowerLengthCut = p.get<float>("ShowerLengthCut");

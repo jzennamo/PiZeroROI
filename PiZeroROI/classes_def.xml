@@ -2,7 +2,9 @@
   <class name="std::pair<int, int>"               />
   <class name="std::vector<std::pair<int, int> >" />
 
-  <class name="ana::PiZeroROI" ClassVersion="12">
+  <class name="ana::PiZeroROI" ClassVersion="14">
+   <version ClassVersion="14" checksum="2532624930"/>
+   <version ClassVersion="13" checksum="1403997480"/>
    <version ClassVersion="12" checksum="3303708388"/>
    <version ClassVersion="11" checksum="2539226195"/>
    <version ClassVersion="10" checksum="3553340236"/>

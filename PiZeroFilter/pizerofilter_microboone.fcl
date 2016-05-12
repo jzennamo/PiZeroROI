@@ -3,12 +3,15 @@ BEGIN_PROLOG
 microboone_pizerofilter:
 { 
     module_type:                "PiZeroFilter"
+    
+    SimulationLabel:            "largeant"
 
     PFPModuleLabel:             "pandoraNu"
     VertexModuleLabel:          "pandoraNu"
     ClusterModuleLabel:         "pandoraNu"
     TrackModuleLabel:           "pandoraNu"
     PFPModuleLabelCosmic:       "pandoraCosmic"
+    CCInclusiveModuleLabel:     "NuMuCCInclusive"	
 
     MuonTrackLengthCut: 75.
     ShowerLengthCut: 3.

@@ -176,15 +176,15 @@ void ana::PiZeroROI::SetVertex( const std::vector< std::pair < int, int > > vtx)
 {
 
   if(vtx.size() > 3){
-  try{ 
-    throw vtx.size();
+    try{ 
+      throw vtx.size();
+    }
+    catch(int e){
+      std::cout << "Too many vertices, " << e << std::endl; 
+    }
   }
-  catch(int e){
-    std::cout << "Too many vertices, " << e << std::endl; 
-  }
-}
 
-_vtx = vtx;
+  _vtx = vtx;
 
 }
 
@@ -195,6 +195,14 @@ void ana::PiZeroROI::SetMuonVertex( const std::vector< float > vtx)
 
 }
 
+void ana::PiZeroROI::SetCCIncVertex( const std::vector< float > vtx)
+{
+
+  _cc_inc_vtx = vtx;
+
+}
+
+
 void ana::PiZeroROI::SetNeutrinoVertex( const std::vector<float > vtx)
 {
   _nu_vtx = vtx;
@@ -204,15 +212,15 @@ void ana::PiZeroROI::SetNeutrinoVertex( const std::vector<float > vtx)
 void ana::PiZeroROI::SetTrackEnd( const std::vector< std::pair < int, int > > trk_end){
   
   if(trk_end.size() > 3){
-  try{ 
-    throw trk_end.size();
+    try{ 
+      throw trk_end.size();
+    }
+    catch(int e){
+      std::cout << "Too many track-endsess, " << e << std::endl; 
+    }
   }
-  catch(int e){
-    std::cout << "Too many track-endsess, " << e << std::endl; 
-  }
-}
 
-_trk_end = trk_end;
+  _trk_end = trk_end;
 
 }
 
@@ -224,6 +232,15 @@ std::vector < float > ana::PiZeroROI::GetMuonVertex() const{
   return output;
 
 }
+
+std::vector < float > ana::PiZeroROI::GetCCIncVertex() const{
+
+  std::vector < float > output = _cc_inc_vtx;
+
+  return output;
+
+}
+
 
 std::vector < float > ana::PiZeroROI::GetNeutrinoVertex() const{
 
@@ -240,6 +257,7 @@ std::vector < std::pair <int, int > > ana::PiZeroROI::GetVertex() const{
   return output;
 
 }
+
 
 std::vector < std::pair <int, int > > ana::PiZeroROI::GetTrackEnd() const{
 
