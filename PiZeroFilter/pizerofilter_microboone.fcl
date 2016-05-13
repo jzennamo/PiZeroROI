@@ -22,8 +22,10 @@ microboone_pizerofilter:
     MinDistanceAnyCluster: 0.5
     UseShowerLengthCut: true
     UseVerticesForDetachedCut: false
-    UseCheckCosmicOverlap: false	      
-    CheckOverlapDetachedShowers: true
+    CheckCosmicOverlap: false	      
+    CheckOverlapAllPFParticles: false	      
+    CheckTrackOverlap: true
+    CheckDetachmentToOtherShowers: false
     RejectMoreThanOneRecoNeutrino: false
     MaxNeutrinoShowers: 2
     MaxCloseTracks: 2
