@@ -84,6 +84,7 @@ private:
   float fShowerDetached2dProximityCut;
   float fMinDistanceAnyCluster;
 
+  bool  fNotCheckDetachmentAtAll;
   bool  fUseShowerLengthCut;
   bool  fCheckTrackOverlap;
   bool  fCheckCosmicOverlap;
@@ -1243,47 +1244,55 @@ bool PiZeroFilter::CheckShowers(const art::Ptr<recob::PFParticle> particle, art:
 	  if(!use_shower)
 	    continue;
 
-	  //if shower is long enough, check detachment... 
-	  bool detachment = false;
-	  int detached_clusters = 0;
-
-	  if(fUseVerticesForDetachedCut){
-	    if(this->IsDetached(longestTrack,daughter,pfParticlesToVerticesMap))
-	      {
-		++n_detached_showers;
-		detachment = true;
+          if(fNotCheckDetachmentAtAll) //if no detachment to be checked at all (!) continue here                                                       
+            showerIDs.push_back(daughterIDs[j]);
+          else
+            {
+	      //if shower is long enough, check detachment... 
+	      bool detachment = false;
+	      int detached_clusters = 0;
+	      
+	      if(fUseVerticesForDetachedCut){
+		if(this->IsDetached(longestTrack,daughter,pfParticlesToVerticesMap))
+		  {
+		    ++n_detached_showers;
+		    detachment = true;
+		  }
 	      }
-	  }
-	  else
-	    {
-	      detached_clusters = this->NDetachedClusters(particle,longestTrack,daughter,pfParticleList, pfParticleListCosmic,pfParticleToClusterMap, pfParticleToClusterMapCosmic, clustersToHits, clustersToHitsCosmic);
-	      
-	      if(detached_clusters>=2) 
+	      else
 		{
-		  detachment = true;
-		  n_detached_showers_2views++;
+		  detached_clusters = this->NDetachedClusters(particle,longestTrack,daughter,pfParticleList, pfParticleListCosmic,pfParticleToClusterMap, pfParticleToClusterMapCosmic, clustersToHits, clustersToHitsCosmic);
+		  
+		  if(detached_clusters>=2) 
+		    {
+		      detachment = true;
+		      n_detached_showers_2views++;
+		    }
+		  if(detached_clusters>2)
+		    n_detached_showers_3views++;
+		  
 		}
-	      if(detached_clusters>2)
-		n_detached_showers_3views++;
 	      
+	      //end - if detached after all tests, store
+	      if(detachment)	  
+		showerIDs.push_back(daughterIDs[j]);
 	    }
-	  
-	  //end - if detached after all tests, store
-	  if(detachment)	  
-	    showerIDs.push_back(daughterIDs[j]);
-	  
 	}//daughter is shower
     } //daughter loop
   
   if(showerIDs.size()<2)
     return false;
-  else if(fUseVerticesForDetachedCut && n_detached_showers<2)
-    return false;
-  else if((n_detached_showers_2views<fMinDetachedShowersIn2Views) || (n_detached_showers_3views<fMinDetachedShowersIn3Views))
-    return false;
+  else if(!fNotCheckDetachmentAtAll)
+    {
+      if(fUseVerticesForDetachedCut && n_detached_showers<2)
+        return false;
+      else if((n_detached_showers_2views<fMinDetachedShowersIn2Views) || (n_detached_showers_3views<fMinDetachedShowersIn3Views))
+        return false;
+      else
+        return true;
+    }
   else
-    return true;
-  
+    return true;  
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -1403,12 +1412,15 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
   fShowerVertex2dProximityCut = p.get<float>("ShowerVertex2dProximityCut");
   fShowerDetached2dProximityCut = p.get<float>("ShowerDetached2dProximityCut");
   fMinDistanceAnyCluster = p.get<float>("MinDistanceAnyCluster");
+
+  fNotCheckDetachmentAtAll = p.get<bool>("NotCheckDetachmentAtAll");
   fUseVerticesForDetachedCut = p.get<bool>("UseVerticesForDetachedCut");
   fCheckTrackOverlap = p.get<bool>("CheckTrackOverlap");
   fCheckCosmicOverlap = p.get<bool>("CheckCosmicOverlap");
   fCheckOverlapAllPFParticles = p.get<bool>("CheckOverlapAllPFParticles");
   fCheckDetachmentToOtherShowers = p.get<bool>("CheckDetachmentToOtherShowers");
   fRejectMoreThanOneRecoNeutrino = p.get<bool>("RejectMoreThanOneRecoNeutrino");
+
   fMaxNeutrinoShowers = p.get<int>("MaxNeutrinoShowers");
   fMaxCloseTracks = p.get<int>("MaxCloseTracks");
   fMaxCosmicTracks = p.get<int>("MaxCosmicTracks");
