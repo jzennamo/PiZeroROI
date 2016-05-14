@@ -832,34 +832,44 @@ const int PiZeroFilter::GetNCloseTracks(const art::Ptr<recob::PFParticle> partic
   return close_tracks;
 }
 
-//-----------------------------------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------------------------------    
 const bool PiZeroFilter::DetachedSegments(float p1x, float p2x, float p1y, float p2y, float q1x, float q2x,float q1y, float q2y) const
 {
-  //do cross product of vectors of the two segments
-  double cross_prod = (p1y-p2y)*(q1x-q2x)-(p1x-p2x)*(q1y-q2y);
-  
-  bool parallel = false;
-  bool onsegment = false;
-  if (cross_prod == 0) parallel = true;
-  if(parallel){
-    if( ((q1x <= std::max(p1x, p2x) && q1x >= std::min(p1x, p2x) && (q1y <= std::max(p1y, p2y) && q1y >= std::min(p1y, p2y)))) &&
-	((q2x <= std::max(p1x, p2x) && q2x >= std::min(p1x, p2x) && (q2y <= std::max(p1y, p2y) && q2y >= std::min(p1y, p2y)))))
-      onsegment = true;
-  }
+  //do cross products of vectors of the two segments                                                                                          
+  double cross_prod_0 = (p2x-p1x)*(q2y-q1y)-(p2y-p1y)*(q2x-q1x);
+  double cross_prod_1 = (p2x-p1x)*(p1y-q1y)-(p2y-p1y)*(p1x-q1x);
+  double cross_prod_2 = (q2x-q1x)*(p1y-q1y)-(q2y-q1y)*(p1x-q1x);
 
-  if(parallel && onsegment) 
-    return false; //coincident
-
-  if(!parallel)
+  //case 1: collinear                                                                                                                         
+  if(cross_prod_0 == 0) //parallel                                                                                                           
     {
-      double cross_prod_1 = (p1y-p2y)*(p1x-q1x)-(p1x-p2x)*(p1y-q1y);
-      double cross_prod_2 = (p1y-p2y)*(p1x-q2x)-(p1x-p2x)*(p1y-q2y);
-      if((cross_prod_1>0 && cross_prod_2<0)||(cross_prod_1<0 && cross_prod_2>0)){
-	return false; //they cross
-      }
+      if(cross_prod_1 == 0) //collinear 
+        {
+          if( ((q1x <= std::max(p1x, p2x) && q1x >= std::min(p1x, p2x) && (q1y <= std::max(p1y, p2y) && q1y >= std::min(p1y, p2y)))) &&
+              ((q2x <= std::max(p1x, p2x) && q2x >= std::min(p1x, p2x) && (q2y <= std::max(p1y, p2y) && q2y >= std::min(p1y, p2y)))))
+            return false;
+          //otherwise collinear but disjoint
+	  else
+            return true;
+        }
+      //case 2: parallel but not intersecting 
+      else
+        return true;
     }
-  return true;
+  //case 3: calculate intersection points
+  else
+    {
+      double u = cross_prod_1/cross_prod_0;
+      double t = cross_prod_2/cross_prod_0;
+      if((t>=0)&&(t<=1)&&(u>=0)&&(u<=1))
+        return false;
+      
+      //case 4: not parallel, not intersecting 
+      else
+        return true;
+    }
 }
+
 
 //-----------------------------------------------------------------------------------------------------------------------------------------
 const bool PiZeroFilter::IsDetached(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap) const
