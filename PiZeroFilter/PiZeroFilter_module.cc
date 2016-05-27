@@ -1373,8 +1373,6 @@ const float PiZeroFilter::GetClosestDistance(art::Ptr<recob::Cluster> showerClus
 bool PiZeroFilter::CheckShowerObjects(const art::Ptr<recob::PFParticle> particle, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticleVector pfParticleListCosmic, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToClusters pfParticleToClusterMapCosmic, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, lar_pandora::ClustersToHits clustersToHits, lar_pandora::ClustersToHits clustersToHitsCosmic, std::vector<size_t>& showerIDs, std::vector<size_t>& showerIDsFinal)
 {
 
-  const detinfo::DetectorProperties* detprop = lar::providerFrom<detinfo::DetectorPropertiesService>();
-
   // find at least two long and detached showers
   int n_detached_showers = 0;
   int n_detached_showers_2views = 0;
