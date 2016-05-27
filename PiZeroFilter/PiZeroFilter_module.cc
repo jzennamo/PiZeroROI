@@ -77,7 +77,9 @@ private:
 
     
   float fMuonTrackLengthCut;
+  float fShortTrackLengthCut;
   float fShowerLengthCut;
+  float fProximityCutToVertex;
   float fTrackVertexProximityCut;
   float fCosmicTrackVertexProximityCut;
   float fShowerVertex2dProximityCut;
@@ -121,7 +123,15 @@ private:
   int fnMCNuMuCC;
   int fMCPdg;
 
-  const bool NeutrinoHasAtLeastTwoShowers(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList);
+  const bool NeutrinoHasAtLeastTwoShowerObjects(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, std::vector<size_t>& showerIDs, art::Ptr<recob::Vertex> nuVertex, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap);
+
+  const bool IsShortTrack(const art::Ptr<recob::PFParticle> track,lar_pandora::PFParticlesToTracks pfParticleToTrackMap);
+
+  const bool IsCloseTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticlesToTracks pfParticleToTrackMap, art::Ptr<recob::Vertex> nuVertex);
+
+  const bool CheckShowerLength(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticlesToClusters pfParticleToClusterMap);
+
+  const bool IsDetachedFromVertex(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticlesToTracks pfParticleToTracksMap, art::Ptr<recob::Vertex> nuVertex, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap);
 
   const int GetNCloseTracks(const art::Ptr<recob::PFParticle> particle, art::Ptr<recob::Vertex> nuVertex, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap) const;
 
@@ -145,7 +155,7 @@ private:
 
   const bool CheckCosmicOverlap(lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticleVector pfParticleListCosmic, const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToClusters pfParticleToClusterMapCosmic, lar_pandora::ClustersToHits clustersToHits, lar_pandora::ClustersToHits clustersToHitsCosmic) const;
   
-  bool CheckShowers(const art::Ptr<recob::PFParticle> particle, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticleVector pfParticleListCosmic, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToClusters pfParticleToClusterMapCosmic, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, lar_pandora::ClustersToHits clustersToHits, lar_pandora::ClustersToHits clustersToHitsCosmic, std::vector<size_t>& showers);
+  bool CheckShowerObjects(const art::Ptr<recob::PFParticle> particle, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticleVector pfParticleListCosmic, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToClusters pfParticleToClusterMapCosmic, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, lar_pandora::ClustersToHits clustersToHits, lar_pandora::ClustersToHits clustersToHitsCosmic, std::vector<size_t>& showers, std::vector<size_t>& showersFinal);
 
   bool BuildROI(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList,art::Ptr<recob::PFParticle> longestTrack, std::vector<size_t> showerIDs, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, std::vector<std::pair<int,int> > & Vertex, std::vector<float> & MuonVertex, std::vector<std::pair<int,int> > & TrackEnd,  std::vector<std::pair<int,int> > & WirePairs, std::vector<std::pair<int,int> > & TimePairs, std::vector<std::pair<int,int> > & PiZeroWirePairs, std::vector<std::pair<int,int> > & PiZeroTimePairs);
     
@@ -166,7 +176,6 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
 {
   this->reconfigure(p);
   art::ServiceHandle<art::TFileService> tfs;
-  
   fallEventTree = tfs->make<TTree>("allEvents","allEvents");
   fallEventTree->Branch("fnVtx",&fnVtx,"fnVtx/I");
   fallEventTree->Branch("fnShw",&fnShw,"fnShw/I");
@@ -185,7 +194,6 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
   fMCEventTree->Branch("fnShwMC",&fnShwMC,"fnShwMC/I");
   fMCEventTree->Branch("fnMCNuMuCC",&fnMCNuMuCC,"fnMCNuMuCC/I");
   fMCEventTree->Branch("fMCPdg",&fMCPdg,"fMCPdg/I");
-  
   // Call appropriate produces<>() functions here.
   produces<std::vector<ana::PiZeroROI> >();
   produces<art::Assns<recob::PFParticle, ana::PiZeroROI> >();
@@ -195,13 +203,13 @@ PiZeroFilter::PiZeroFilter(fhicl::ParameterSet const & p)
 
 bool PiZeroFilter::filter(art::Event & e)
 {
-
+  
   bool pass = false;
 
   // Implementation of required member function here.
   std::unique_ptr<std::vector<ana::PiZeroROI> > pizeroroiVector( new std::vector<ana::PiZeroROI> );
   //std::unique_ptr< art::Assns<recob::Vertex, ana::PiZeroROI::PiZeroROI > >  assnPiZeroROITagVertex( new art::Assns<recob::Vertex, anab::PiZeroROI>);
-  
+
   //declaration of variables to be used to store ROIss
   std::vector< int > roi_cand_v;  
   std::vector< double > trk_lengths; 
@@ -273,6 +281,11 @@ bool PiZeroFilter::filter(art::Event & e)
   lar_pandora::LArPandoraHelper::CollectTracks(e, fPFPModuleLabelCosmic, allPfParticleTracksCosmic, pfTracksToHitsMapCosmic);
   lar_pandora::LArPandoraHelper::CollectClusters(e, fPFPModuleLabelCosmic, clusterVectorCosmic, clustersToHitsCosmic);
 
+
+
+
+
+
   //get the output from CC inclusive filter
   art::Handle<art::Assns<recob::Vertex, recob::Track>> vtxTrackAssnsHandle;
   e.getByLabel( fCCInclusiveModuleLabel, vtxTrackAssnsHandle);
@@ -281,8 +294,12 @@ bool PiZeroFilter::filter(art::Event & e)
   size_t muonID = static_cast<size_t>(-1);
 
   if (!vtxTrackAssnsHandle.isValid()) 
-    throw std::exception();
-    
+    //throw std::exception();
+    {
+      e.put( std::move(pizeroroiVector) );
+      e.put( std::move(ROI_PFP_Assn) );                                                                                                     
+      return false;
+    }
   const art::Assns<recob::Vertex, recob::Track>& vtxTrackAssns = *vtxTrackAssnsHandle;
 
   if(vtxTrackAssns.size()!=1)
@@ -355,11 +372,8 @@ bool PiZeroFilter::filter(art::Event & e)
 	}
     }
   
-
-  
-  //No need for a big loop over all PFParticles now, we know the neutrino ID 
-  
   const art::Ptr<recob::PFParticle> particle = pfParticleList.at(nuID);	  
+  
   lar_pandora::PFParticlesToVertices::const_iterator vIter = pfParticlesToVerticesMap.find(particle);
   
   if (pfParticlesToVerticesMap.end() != vIter)
@@ -378,8 +392,10 @@ bool PiZeroFilter::filter(art::Event & e)
 	      NeutrinoVertex[0] = xyz_0[0];
 	      NeutrinoVertex[1] = xyz_0[1];
 	      NeutrinoVertex[2] = xyz_0[2];
+
+	      std::vector<size_t> showerIDs;
 	      
-	      if (!this->NeutrinoHasAtLeastTwoShowers(particle,pfParticleList))
+	      if (!this->NeutrinoHasAtLeastTwoShowerObjects(particle,pfParticleList, pfParticleToTrackMap, pfParticleToClusterMap,showerIDs, nuVertex, pfParticlesToVerticesMap))
 		{
 		  e.put( std::move(pizeroroiVector) );
 		  e.put( std::move(ROI_PFP_Assn) );
@@ -407,12 +423,11 @@ bool PiZeroFilter::filter(art::Event & e)
 		  return false;
 		}
 	      
-	      //"longest track" (aka muon candidate) comes now from the CC inclusive filter 
+	      //"longest track" (aka muon candidate) comes now from the CC inclusive filter - doesn't have to be the longest
 	      art::Ptr<recob::PFParticle> longestTrack = pfParticleList.at(muonID); 
 	      
-	      std::vector<size_t> showerIDs;
-	      
-	      if(!this->CheckShowers(particle, longestTrack, pfParticleList, pfParticleListCosmic,pfParticleToClusterMap, pfParticleToClusterMapCosmic, pfParticlesToVerticesMap, clustersToHits,clustersToHitsCosmic, showerIDs))
+	      std::vector<size_t> showerIDsFinal;
+	      if(!this->CheckShowerObjects(particle, longestTrack, pfParticleList, pfParticleListCosmic,pfParticleToClusterMap, pfParticleToClusterMapCosmic, pfParticlesToVerticesMap, clustersToHits,clustersToHitsCosmic, showerIDs, showerIDsFinal))
 		{
 		  e.put( std::move(pizeroroiVector) );
 		  e.put( std::move(ROI_PFP_Assn) );
@@ -421,7 +436,7 @@ bool PiZeroFilter::filter(art::Event & e)
 		}
 
 	      //this is a much tighter cut, if we don't want any hit from any PFParticle or cosmic to cross with the showers 
-
+	      /*
 	      if(fCheckTrackOverlap)
 		{
 		  if(this->CheckTrackOverlap(pfParticleList, particle, longestTrack, pfParticleToClusterMap,clustersToHits))
@@ -454,8 +469,8 @@ bool PiZeroFilter::filter(art::Event & e)
 		      return false;
 		    }
 		}
-	      
-	      if (!this->BuildROI(particle, pfParticleList, longestTrack, showerIDs, pfParticleToClusterMap, pfParticlesToVerticesMap, Vertex, MuonVertex,TrackEnd,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
+	      */
+	      if (!this->BuildROI(particle, pfParticleList, longestTrack, showerIDsFinal, pfParticleToClusterMap, pfParticlesToVerticesMap, Vertex, MuonVertex,TrackEnd,WirePairs,TimePairs,PiZeroWirePairs,PiZeroTimePairs))
 		{
 		  e.put( std::move(pizeroroiVector) );
 		  e.put( std::move(ROI_PFP_Assn) );
@@ -742,20 +757,165 @@ const bool PiZeroFilter::CheckOverlapAllPFParticles(lar_pandora::PFParticleVecto
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-//this could be more generic CheckNTracksAndShowers and minimum could be parameter in .xml
-const bool PiZeroFilter::NeutrinoHasAtLeastTwoShowers(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList)
+const bool PiZeroFilter::IsShortTrack(const art::Ptr<recob::PFParticle> track,lar_pandora::PFParticlesToTracks pfParticleToTrackMap)
+{
+  
+  lar_pandora::PFParticlesToTracks::const_iterator trackMapIter = pfParticleToTrackMap.find(track);
+  if (trackMapIter != pfParticleToTrackMap.end()) 
+    {
+      const lar_pandora::TrackVector &trackV = trackMapIter->second;
+      
+      if (trackV.size() > 1)
+	std::cerr << "Warning: there was more than one track found " << std::endl;
+      
+      if (trackV.size() > 0)
+	{
+	  art::Ptr<recob::Track> theTrack = trackV.front();
+	  
+	  const float trkl = (theTrack->Vertex()-theTrack->End()).Mag();
+	  
+	  if(trkl<fShortTrackLengthCut)
+	    return true;
+	}
+    }
+
+  return false;
+
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
+const bool PiZeroFilter::CheckShowerLength(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticlesToClusters pfParticleToClusterMap)
+{
+  const detinfo::DetectorProperties* detprop = lar::providerFrom<detinfo::DetectorPropertiesService>();
+  bool use_shower = false;
+
+  lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(particle);//find clusters       
+  if (clusterMapIter != pfParticleToClusterMap.end())
+    {
+      lar_pandora::ClusterVector showerClusters = clusterMapIter->second;
+      
+      for(unsigned int i = 0; i < showerClusters.size(); ++i)
+	{
+	  double wire_pitch   = 0.3;//geom->WirePitch(0,0,0,0); //wire pitch in cm                                            
+	  double length = sqrt(pow((showerClusters[i]->StartWire()-showerClusters[i]->EndWire())*wire_pitch,2)+pow(detprop->ConvertTicksToX(showerClusters[i]->StartTick(),showerClusters[i]->View(),0,0)-detprop->ConvertTicksToX(showerClusters[i]->EndTick(),showerClusters[i]->View(),0,0),2));
+	  
+	  if(length>fShowerLengthCut) //use shower if it is long enough in at least one view (less conservative) 
+	    use_shower = true;
+	}
+    }
+
+  return use_shower;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------                 
+const bool PiZeroFilter::IsDetachedFromVertex(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticlesToTracks pfParticleToTrackMap, art::Ptr<recob::Vertex> nuVertex, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap)
+{
+  double xyz_particle[3] = {0.,0.,0.};
+  double xyz_neutrino[3] = {0.,0.,0.};
+  lar_pandora::PFParticlesToVertices::const_iterator particleVertexMapIter = pfParticlesToVerticesMap.find(particle);
+  
+  if (particleVertexMapIter == pfParticlesToVerticesMap.end())
+    std::cerr << "Warning: No vertex found" << std::endl;
+  
+  lar_pandora::VertexVector particleVertices = particleVertexMapIter->second;
+  if (particleVertices.size() > 1)
+    std::cerr << "Warning: more than one vertex found for the particle" << std::endl;
+  
+  art::Ptr<recob::Vertex> particleVertex = particleVertices.front();
+  particleVertex->XYZ(xyz_particle);
+
+  nuVertex->XYZ(xyz_neutrino);
+  TVector3 nuVtx(xyz_neutrino[0],xyz_neutrino[1],xyz_neutrino[2]);
+
+  float dist = std::sqrt(pow(xyz_particle[0]-xyz_neutrino[0],2)+pow(xyz_particle[1]-xyz_neutrino[1],2)+pow(xyz_particle[2]-xyz_neutrino[2],2));
+
+  if(lar_pandora::LArPandoraHelper::IsTrack(particle))
+    {
+      lar_pandora::PFParticlesToTracks::const_iterator trackMapIter = pfParticleToTrackMap.find(particle);
+      if (trackMapIter != pfParticleToTrackMap.end())
+	{
+	  const lar_pandora::TrackVector &theTracks = trackMapIter->second;
+
+	  if (theTracks.size() > 1)
+	    std::cerr << "Warning: there was more than one track found " << std::endl;
+
+	  if (theTracks.size() > 0)
+	    {
+	      art::Ptr<recob::Track> theTrack = theTracks.front();
+	      const float dist1 = (nuVtx-theTrack->Vertex()).Mag();
+	      const float dist2 = (nuVtx-theTrack->End()).Mag();
+      
+	      if((dist1>fProximityCutToVertex) && (dist2>fProximityCutToVertex))
+		return true;
+	    }
+	}
+    }
+  else
+    {
+      if(dist>fProximityCutToVertex)
+	return true;
+    }
+  
+  return false;
+}
+//------------------------------------------------------------------------------------------------------------------------------------------
+const bool PiZeroFilter::IsCloseTrack(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticlesToTracks pfParticleToTrackMap, art::Ptr<recob::Vertex> nuVertex)
+{
+  double xyz_p[3] = {0.0, 0.0, 0.0} ;
+  nuVertex->XYZ(xyz_p);//vertex of the neutrino primary particle in XYZ form                                                                                
+  TVector3 nuVtx(xyz_p[0],xyz_p[1],xyz_p[2]);
+
+  lar_pandora::PFParticlesToTracks::const_iterator trackMapIter = pfParticleToTrackMap.find(particle);
+  if (trackMapIter != pfParticleToTrackMap.end())
+    {
+      const lar_pandora::TrackVector &theTracks = trackMapIter->second;
+
+      if (theTracks.size() > 1)
+	std::cerr << "Warning: there was more than one track found " << std::endl;
+
+      if (theTracks.size() > 0)
+	{
+	  art::Ptr<recob::Track> theTrack = theTracks.front();
+	  const float dist1 = (nuVtx-theTrack->Vertex()).Mag();
+	  const float dist2 = (nuVtx-theTrack->End()).Mag();
+
+	  if(dist1<fTrackVertexProximityCut || dist2<fTrackVertexProximityCut)
+	    return true;
+	}
+    }
+  return false;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+//now this is looking at potential-shower objects, either showers or short-tracks
+const bool PiZeroFilter::NeutrinoHasAtLeastTwoShowerObjects(const art::Ptr<recob::PFParticle> particle, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticlesToTracks pfParticleToTrackMap, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, std::vector<size_t>& showerIDs, art::Ptr<recob::Vertex> nuVertex, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap)
 {
   unsigned int n_showers = 0;
   const std::vector<size_t> &daughterIDs = particle->Daughters();
 
   for (size_t j = 0; j < daughterIDs.size(); ++j)
     {
-      if (lar_pandora::LArPandoraHelper::IsShower(pfParticleList.at(daughterIDs[j]))) 
-	++n_showers;
+      const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
+
+      if (lar_pandora::LArPandoraHelper::IsShower(daughter)) 
+	{
+	  n_showers++;
+	  if((this->CheckShowerLength(daughter,pfParticleToClusterMap)) && (this->IsDetachedFromVertex(daughter,pfParticleToTrackMap, nuVertex,pfParticlesToVerticesMap)))
+	    showerIDs.push_back(daughterIDs[j]);
+	}
+      else
+	{
+	  if((this->IsShortTrack(daughter,pfParticleToTrackMap))&& (this->IsCloseTrack(particle, pfParticleToTrackMap, nuVertex)))
+	    {
+	      if((this->CheckShowerLength(daughter,pfParticleToClusterMap)) && (this->IsDetachedFromVertex(daughter,pfParticleToTrackMap, nuVertex,pfParticlesToVerticesMap)))
+		showerIDs.push_back(daughterIDs[j]);
+	    }
+	}
     }
-  
+
   fnShw = n_showers;
-  return (n_showers>=2); 
+  return (showerIDs.size()>=2); 
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -833,29 +993,29 @@ const int PiZeroFilter::GetNCloseTracks(const art::Ptr<recob::PFParticle> partic
   return close_tracks;
 }
 
-//-----------------------------------------------------------------------------------------------------------------------------------------    
+//-----------------------------------------------------------------------------------------------------------------------------------------
 const bool PiZeroFilter::DetachedSegments(float p1x, float p2x, float p1y, float p2y, float q1x, float q2x,float q1y, float q2y) const
 {
-  //do cross products of vectors of the two segments                                                                                          
+  //do cross products of vectors of the two segments
   double cross_prod_0 = (p2x-p1x)*(q2y-q1y)-(p2y-p1y)*(q2x-q1x);
   double cross_prod_1 = (p2x-p1x)*(p1y-q1y)-(p2y-p1y)*(p1x-q1x);
   double cross_prod_2 = (q2x-q1x)*(p1y-q1y)-(q2y-q1y)*(p1x-q1x);
 
-  //case 1: collinear                                                                                                                         
-  if(cross_prod_0 == 0) //parallel                                                                                                           
-    {
-      if(cross_prod_1 == 0) //collinear 
-        {
-          if( ((q1x <= std::max(p1x, p2x) && q1x >= std::min(p1x, p2x) && (q1y <= std::max(p1y, p2y) && q1y >= std::min(p1y, p2y)))) &&
-              ((q2x <= std::max(p1x, p2x) && q2x >= std::min(p1x, p2x) && (q2y <= std::max(p1y, p2y) && q2y >= std::min(p1y, p2y)))))
-            return false;
-          //otherwise collinear but disjoint
+  //case 1: collinear
+  if(cross_prod_0 == 0) //parallel
+    { 
+      if(cross_prod_1 == 0) //collinear
+	{
+	  if( ((q1x <= std::max(p1x, p2x) && q1x >= std::min(p1x, p2x) && (q1y <= std::max(p1y, p2y) && q1y >= std::min(p1y, p2y)))) &&
+	      ((q2x <= std::max(p1x, p2x) && q2x >= std::min(p1x, p2x) && (q2y <= std::max(p1y, p2y) && q2y >= std::min(p1y, p2y)))))
+	    return false;
+	  //otherwise collinear but disjoint
 	  else
-            return true;
-        }
-      //case 2: parallel but not intersecting 
+	    return true;
+	}
+      //case 2: parallel but not intersecting
       else
-        return true;
+	return true;
     }
   //case 3: calculate intersection points
   else
@@ -863,14 +1023,13 @@ const bool PiZeroFilter::DetachedSegments(float p1x, float p2x, float p1y, float
       double u = cross_prod_1/cross_prod_0;
       double t = cross_prod_2/cross_prod_0;
       if((t>=0)&&(t<=1)&&(u>=0)&&(u<=1))
-        return false;
-      
-      //case 4: not parallel, not intersecting 
+	return false;
+
+      //case 4: not parallel, not intersecting
       else
-        return true;
+	return true;
     }
 }
-
 
 //-----------------------------------------------------------------------------------------------------------------------------------------
 const bool PiZeroFilter::IsDetached(art::Ptr<recob::PFParticle> track, art::Ptr<recob::PFParticle> shower, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap) const
@@ -915,6 +1074,7 @@ const bool PiZeroFilter::IsDetached(art::Ptr<recob::PFParticle> track, art::Ptr<
 const bool PiZeroFilter::CheckOverlap(art::Ptr<recob::Cluster> trackCluster, art::Ptr<recob::Cluster> showerCluster, lar_pandora::ClustersToHits clustersToHits, lar_pandora::ClustersToHits clustersToHits2 ) const
 {
   std::map< geo::WireID, std::pair<double,double>> tick_range_perWire;
+  //  art::ServiceHandle<geo::Geometry> theGeometry;
   
   //loop over hits in the shower cluster to store min and max ticks per wire ID 
   lar_pandora::ClustersToHits::const_iterator showerClustersHitsMapIter = clustersToHits2.find(showerCluster);
@@ -1011,7 +1171,6 @@ const int PiZeroFilter::NDetachedClusters(art::Ptr<recob::PFParticle> particle, 
 	  bool detached = true;
 	  auto c_jdx = showerClusters[j]->Plane().Plane;
 
-
 	  //loop over the list of PFParticles after the neutrino pass
 	  for (unsigned int n = 0; n < pfParticleList.size(); ++n)
 	    {
@@ -1032,8 +1191,8 @@ const int PiZeroFilter::NDetachedClusters(art::Ptr<recob::PFParticle> particle, 
 		      const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
 		      if(lar_pandora::LArPandoraHelper::IsShower(daughter))
 			{
-		      if(pfp->Self()==daughter->Self())
-			other_daughter_shower = true;
+			  if(pfp->Self()==daughter->Self())
+			    other_daughter_shower = true;
 			}
 		    }
 		  if(other_daughter_shower)
@@ -1116,12 +1275,16 @@ const int PiZeroFilter::NDetachedClusters(art::Ptr<recob::PFParticle> particle, 
 			    {
 			      //one - check if clusters crossing
 			      if(!this->DetachedSegments(detprop->ConvertTicksToX(cosmicClusters[i]->StartTick(),cosmicClusters[i]->View(),0,0),detprop->ConvertTicksToX(cosmicClusters[i]->EndTick(),cosmicClusters[i]->View(),0,0),cosmicClusters[i]->StartWire(), cosmicClusters[i]->EndWire(),detprop->ConvertTicksToX(showerClusters[j]->StartTick(), showerClusters[j]->View(),0,0), detprop->ConvertTicksToX(showerClusters[j]->EndTick(),showerClusters[j]->View(),0, 0),showerClusters[j]->StartWire(),showerClusters[j]->EndWire()))
-				detached = false;
+				{
+				  detached = false;
+				}
 			      
 			      //second - check minimum distance
 			      float distance = this->GetClosestDistance(showerClusters[j],cosmicClusters[i]);
 			      if(distance<fMinDistanceAnyCluster)
-				detached = false;
+				{
+				  detached = false;
+				}
 			    }
 			}
 		    }
@@ -1198,14 +1361,16 @@ const float PiZeroFilter::GetClosestDistance(art::Ptr<recob::Cluster> showerClus
 
   double dist6 = std::abs((cosmicCluster->StartWire()-cosmicCluster->EndWire())*wire_pitch*(detprop->ConvertTicksToX(showerCluster->EndTick(),showerCluster->View(),0,0)-detprop->ConvertTicksToX(cosmicCluster->StartTick(),cosmicCluster->View(),0,0)) - ((showerCluster->EndWire()-cosmicCluster->StartWire())*wire_pitch*(detprop->ConvertTicksToX(cosmicCluster->StartTick(),cosmicCluster->View(),0,0)-detprop->ConvertTicksToX(cosmicCluster->EndTick(),cosmicCluster->View(),0,0))) )/line_length;
 
+  
   min_distance = std::min(dist1,std::min(dist2,std::min(dist3, std::min(dist4,std::min(dist5,dist6)))));
+
   return min_distance;
 }
 
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-bool PiZeroFilter::CheckShowers(const art::Ptr<recob::PFParticle> particle, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticleVector pfParticleListCosmic, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToClusters pfParticleToClusterMapCosmic, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, lar_pandora::ClustersToHits clustersToHits, lar_pandora::ClustersToHits clustersToHitsCosmic, std::vector<size_t>& showerIDs)
+bool PiZeroFilter::CheckShowerObjects(const art::Ptr<recob::PFParticle> particle, art::Ptr<recob::PFParticle> longestTrack, lar_pandora::PFParticleVector pfParticleList, lar_pandora::PFParticleVector pfParticleListCosmic, lar_pandora::PFParticlesToClusters pfParticleToClusterMap, lar_pandora::PFParticlesToClusters pfParticleToClusterMapCosmic, lar_pandora::PFParticlesToVertices pfParticlesToVerticesMap, lar_pandora::ClustersToHits clustersToHits, lar_pandora::ClustersToHits clustersToHitsCosmic, std::vector<size_t>& showerIDs, std::vector<size_t>& showerIDsFinal)
 {
 
   const detinfo::DetectorProperties* detprop = lar::providerFrom<detinfo::DetectorPropertiesService>();
@@ -1214,46 +1379,24 @@ bool PiZeroFilter::CheckShowers(const art::Ptr<recob::PFParticle> particle, art:
   int n_detached_showers = 0;
   int n_detached_showers_2views = 0;
   int n_detached_showers_3views = 0;
-  const std::vector<size_t> &daughterIDs = particle->Daughters();
 
-  for (size_t j = 0; j < daughterIDs.size(); ++j) // loop over neutrino daughters                                                              
+  for (size_t j = 0; j < showerIDs.size(); ++j) // loop over neutrino daughters                                                              
     {
-      const art::Ptr<recob::PFParticle> daughter(pfParticleList.at(daughterIDs[j]));
-      if(lar_pandora::LArPandoraHelper::IsShower(daughter)) // loop over showers                                                            
-        {
-	  bool use_shower = true;
-	  lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(daughter);//find clusters       
-          if (clusterMapIter != pfParticleToClusterMap.end())
-            {
-              //First check if shower is long enough                                                                                            
-              if(fUseShowerLengthCut)
-                {
-                  use_shower = false;
-		  lar_pandora::ClusterVector showerClusters = clusterMapIter->second;
-
-                  for(unsigned int i = 0; i < showerClusters.size(); ++i)
-                    {
-                      double wire_pitch   = 0.3;//geom->WirePitch(0,0,0,0); //wire pitch in cm                                            
-                      double length = sqrt(pow((showerClusters[i]->StartWire()-showerClusters[i]->EndWire())*wire_pitch,2)+pow(detprop->ConvertTicksToX(showerClusters[i]->StartTick(),showerClusters[i]->View(),0,0)-detprop->ConvertTicksToX(showerClusters[i]->EndTick(),showerClusters[i]->View(),0,0),2));
-
-                      if(length>fShowerLengthCut) //use shower if it is long in at least one view (less conservative) 
-                        use_shower = true;
-		    }
-		}
-	    }
-	  if(!use_shower)
-	    continue;
-
-          if(fNotCheckDetachmentAtAll) //if no detachment to be checked at all (!) continue here                                                       
-            showerIDs.push_back(daughterIDs[j]);
-          else
-            {
+      const art::Ptr<recob::PFParticle> shower(pfParticleList.at(showerIDs[j]));
+      lar_pandora::PFParticlesToClusters::const_iterator clusterMapIter = pfParticleToClusterMap.find(shower);//find clusters       
+      if (clusterMapIter != pfParticleToClusterMap.end())
+	{
+	  
+	  if(fNotCheckDetachmentAtAll) //if no detachment to be checked at all (!) continue here
+	    showerIDsFinal.push_back(showerIDs[j]);
+	  else
+	    {
 	      //if shower is long enough, check detachment... 
 	      bool detachment = false;
 	      int detached_clusters = 0;
 	      
 	      if(fUseVerticesForDetachedCut){
-		if(this->IsDetached(longestTrack,daughter,pfParticlesToVerticesMap))
+		if(this->IsDetached(longestTrack,shower,pfParticlesToVerticesMap))
 		  {
 		    ++n_detached_showers;
 		    detachment = true;
@@ -1261,7 +1404,8 @@ bool PiZeroFilter::CheckShowers(const art::Ptr<recob::PFParticle> particle, art:
 	      }
 	      else
 		{
-		  detached_clusters = this->NDetachedClusters(particle,longestTrack,daughter,pfParticleList, pfParticleListCosmic,pfParticleToClusterMap, pfParticleToClusterMapCosmic, clustersToHits, clustersToHitsCosmic);
+		  detached_clusters = this->NDetachedClusters(particle,longestTrack,shower,pfParticleList, pfParticleListCosmic,pfParticleToClusterMap, pfParticleToClusterMapCosmic, clustersToHits, clustersToHitsCosmic);
+		  
 		  
 		  if(detached_clusters>=2) 
 		    {
@@ -1275,24 +1419,26 @@ bool PiZeroFilter::CheckShowers(const art::Ptr<recob::PFParticle> particle, art:
 	      
 	      //end - if detached after all tests, store
 	      if(detachment)	  
-		showerIDs.push_back(daughterIDs[j]);
+		showerIDsFinal.push_back(showerIDs[j]);
+	      
 	    }
-	}//daughter is shower
-    } //daughter loop
+	}
+    }
   
-  if(showerIDs.size()<2)
+  if(showerIDsFinal.size()<2)
     return false;
   else if(!fNotCheckDetachmentAtAll)
     {
       if(fUseVerticesForDetachedCut && n_detached_showers<2)
-        return false;
+	return false;
       else if((n_detached_showers_2views<fMinDetachedShowersIn2Views) || (n_detached_showers_3views<fMinDetachedShowersIn3Views))
-        return false;
-      else
-        return true;
+	return false;
+      else 
+	return true;
     }
   else
-    return true;  
+    return true;
+  
 }
 
 //------------------------------------------------------------------------------------------------------------------------------------------
@@ -1406,8 +1552,10 @@ void PiZeroFilter::reconfigure(fhicl::ParameterSet const & p)
 
   // Implementation of optional member function here.
   fMuonTrackLengthCut = p.get<float>("MuonTrackLengthCut");
+  fShortTrackLengthCut = p.get<float>("ShortTrackLengthCut");
   fShowerLengthCut = p.get<float>("ShowerLengthCut");
   fUseShowerLengthCut = p.get<bool>("UseShowerLengthCut");
+  fProximityCutToVertex = p.get<float>("ProximityCutToVertex");
   fTrackVertexProximityCut = p.get<float>("TrackVertexProximityCut");
   fShowerVertex2dProximityCut = p.get<float>("ShowerVertex2dProximityCut");
   fShowerDetached2dProximityCut = p.get<float>("ShowerDetached2dProximityCut");
